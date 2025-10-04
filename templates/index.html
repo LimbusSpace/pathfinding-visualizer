@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寻路算法可视化</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>寻路算法可视化</h1>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>场地大小:</label>
+                <select id="gridSize" onchange="updateGridInputs()">
+                    <option value="small">小场地 (20x20)</option>
+                    <option value="medium">中场地 (30x30)</option>
+                    <option value="large">大场地 (40x40)</option>
+                </select>
+                <input type="number" id="gridWidth" value="20" min="10" max="50" style="width: 60px;">
+                <span>x</span>
+                <input type="number" id="gridHeight" value="20" min="10" max="50" style="width: 60px;">
+                <button onclick="initializeGrid()">初始化网格</button>
+            </div>
+
+            <div class="control-group">
+                <label>算法选择:</label>
+                <select id="algorithmSelect">
+                    <option value="astar">A* 算法</option>
+                    <option value="dijkstra">Dijkstra 算法</option>
+                    <option value="bfs">广度优先搜索</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>启发式函数:</label>
+                <select id="heuristicSelect">
+                    <option value="manhattan">曼哈顿距离</option>
+                    <option value="euclidean">欧几里得距离</option>
+                    <option value="diagonal">对角距离</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="diagonalCheckbox"> 允许对角线移动
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label>探路速度:</label>
+                <select id="animationSpeed">
+                    <option value="fast" selected>最快</option>
+                    <option value="medium">中等</option>
+                    <option value="slow">最慢</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <button onclick="startPathfinding()" id="startBtn">开始寻路</button>
+                <button onclick="clearPath()" id="clearBtn">清除路径</button>
+                <button onclick="clearAll()" id="clearAllBtn">清空网格</button>
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color empty"></div>
+                <span>空地</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color wall"></div>
+                <span>障碍物</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color start"></div>
+                <span>起点</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color end"></div>
+                <span>终点</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color visited"></div>
+                <span>已访问</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color path"></div>
+                <span>路径</span>
+            </div>
+        </div>
+
+        <div class="grid-container">
+            <div id="grid"></div>
+        </div>
+
+        <div class="status" id="status">
+            点击"初始化网格"开始，然后设置起点、终点和障碍物
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
