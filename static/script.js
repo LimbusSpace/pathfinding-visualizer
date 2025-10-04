@@ -369,7 +369,308 @@ function clearAll() {
     visualizer.clearAll();
 }
 
-// 页面加载时初始化默认网格
+// LLM 相关功能
+llmManager = {
+    initialized: false,
+    customAlgorithms: [],
+
+    async init() {
+        try {
+            const response = await fetch('/llm/config');
+            const config = await response.json();
+            this.providers = config.providers;
+            this.currentProvider = config.current_provider;
+            this.initialized = true;
+            this.updateAlgorithmList();
+        } catch (error) {
+            console.error('LLM 配置加载失败:', error);
+        }
+    },
+
+    updateAlgorithmList() {
+        const select = document.getElementById('customAlgorithmSelect');
+        select.innerHTML = '<option value="">选择自定义算法</option>';
+
+        this.customAlgorithms.forEach(algorithm => {
+            const option = document.createElement('option');
+            option.value = algorithm;
+            option.textContent = algorithm;
+            select.appendChild(option);
+        });
+    },
+
+    async loadCustomAlgorithms() {
+        try {
+            const response = await fetch('/llm/custom_algorithms');
+            const data = await response.json();
+            if (data.success) {
+                this.customAlgorithms = data.algorithms;
+                this.updateAlgorithmList();
+            }
+        } catch (error) {
+            console.error('加载自定义算法失败:', error);
+        }
+    }
+};
+
+// 页面加载时初始化
 window.addEventListener('load', () => {
     initializeGrid();
+    llmManager.init();
 });
+
+// LLM 设置相关的函数
+function toggleLLMSettings() {
+    const settings = document.getElementById('llmSettings');
+    const btn = document.getElementById('llmSettingsBtn');
+
+    if (settings.style.display === 'none') {
+        settings.style.display = 'block';
+        btn.textContent = '隐藏 LLM 设置';
+    } else {
+        settings.style.display = 'none';
+        btn.textContent = '设置 LLM';
+    }
+}
+
+function hideLLMSettings() {
+    const settings = document.getElementById('llmSettings');
+    const btn = document.getElementById('llmSettingsBtn');
+    settings.style.display = 'none';
+    btn.textContent = '设置 LLM';
+}
+
+async function saveApiKey() {
+    const provider = document.getElementById('llmProvider').value;
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+
+    if (!apiKey) {
+        alert('请输入API密钥');
+        return;
+    }
+
+    try {
+        const response = await fetch('/llm/set_api_key', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                provider: provider,
+                api_key: apiKey
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert('API密钥保存成功');
+            document.getElementById('apiKeyInput').value = '';
+        } else {
+            alert('保存失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+async function testConnection() {
+    const provider = document.getElementById('llmProvider').value;
+    const btn = document.getElementById('testConnectionBtn');
+
+    btn.textContent = '测试中...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch('/llm/test_connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                provider: provider
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            if (result.connected) {
+                alert('连接成功！API密钥可用');
+            } else {
+                alert('连接失败，请检查API密钥');
+            }
+        } else {
+            alert('测试失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('测试失败: ' + error.message);
+    } finally {
+        btn.textContent = '测试连接';
+        btn.disabled = false;
+    }
+}
+
+async function generateAlgorithm() {
+    const provider = document.getElementById('llmProvider').value;
+    const description = document.getElementById('algorithmDescription').value.trim();
+    const algorithmName = document.getElementById('algorithmName').value.trim();
+    const generateBtn = document.getElementById('generateBtn');
+    const codeArea = document.getElementById('generatedCode');
+
+    if (!description) {
+        alert('请输入算法描述');
+        return;
+    }
+
+    if (!algorithmName) {
+        alert('请输入算法名称');
+        return;
+    }
+
+    generateBtn.textContent = '生成中...';
+    generateBtn.disabled = true;
+    codeArea.value = '正在生成算法代码...';
+
+    try {
+        const response = await fetch('/llm/generate_algorithm', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                provider: provider,
+                description: description,
+                name: algorithmName
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            codeArea.value = result.code;
+            alert('算法生成成功！');
+            llmManager.loadCustomAlgorithms();
+        } else {
+            codeArea.value = '生成失败: ' + result.error;
+            alert('生成失败: ' + result.error);
+        }
+    } catch (error) {
+        codeArea.value = '生成失败: ' + error.message;
+        alert('生成失败: ' + error.message);
+    } finally {
+        generateBtn.textContent = '生成算法';
+        generateBtn.disabled = false;
+    }
+}
+
+async function executeCustomAlgorithm() {
+    const algorithmSelect = document.getElementById('customAlgorithmSelect');
+    const algorithmName = algorithmSelect.value;
+
+    if (!algorithmName) {
+        alert('请选择一个自定义算法');
+        return;
+    }
+
+    if (!visualizer.startPos || !visualizer.endPos) {
+        alert('请先设置起点和终点');
+        return;
+    }
+
+    if (visualizer.isAnimating) {
+        alert('正在执行寻路，请稍候');
+        return;
+    }
+
+    visualizer.isAnimating = true;
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('executeCustomBtn').disabled = true;
+
+    try {
+        visualizer.updateStatus('正在执行自定义算法...');
+
+        // 清除现有路径
+        visualizer.clearPath();
+
+        const response = await fetch('/llm/execute_custom', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: algorithmName
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            await visualizer.animateCustomPathfinding(result.path, result.visited, result.found);
+        } else {
+            visualizer.updateStatus('算法执行失败: ' + result.error);
+        }
+    } catch (error) {
+        visualizer.updateStatus('执行失败: ' + error.message);
+    } finally {
+        visualizer.isAnimating = false;
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('executeCustomBtn').disabled = false;
+    }
+}
+
+// 在 PathfindingVisualizer 类中添加自定义算法动画方法
+PathfindingVisualizer.prototype.animateCustomPathfinding = async function(path, visited, found) {
+    if (!visited || visited.length === 0) {
+        this.updateStatus('没有访问任何节点');
+        return;
+    }
+
+    const speed = this.getAnimationSpeed();
+    let index = 0;
+
+    // 动画显示访问的节点
+    const animateVisited = () => {
+        const batchSize = speed.batchSize;
+        const endIndex = Math.min(index + batchSize, visited.length);
+
+        for (let i = index; i < endIndex; i++) {
+            const [y, x] = visited[i];
+            if (this.grid[y][x] === this.cellTypes.EMPTY) {
+                this.grid[y][x] = this.cellTypes.VISITED;
+                this.updateCell(x, y);
+            }
+        }
+
+        index = endIndex;
+
+        if (index < visited.length) {
+            setTimeout(animateVisited, speed.visited);
+        } else {
+            // 访问节点动画完成后，显示路径
+            if (found && path && path.length > 0) {
+                this.animateCustomPath(path, speed.path);
+            } else {
+                this.updateStatus('算法执行完成，未找到路径');
+            }
+        }
+    };
+
+    animateVisited();
+};
+
+PathfindingVisualizer.prototype.animateCustomPath = async function(path, delay) {
+    let index = path.length - 1;
+
+    const animatePath = () => {
+        if (index >= 0) {
+            const [y, x] = path[index];
+            if (this.grid[y][x] === this.cellTypes.VISITED || this.grid[y][x] === this.cellTypes.EMPTY) {
+                this.grid[y][x] = this.cellTypes.PATH;
+                this.updateCell(x, y);
+            }
+            index--;
+            setTimeout(animatePath, delay);
+        } else {
+            this.updateStatus('路径搜索完成');
+        }
+    };
+
+    animatePath();
+};

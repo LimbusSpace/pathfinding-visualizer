@@ -326,6 +326,99 @@ button {
     }
 }
 
+/* LLM 设置面板样式 */
+.llm-settings {
+    padding: 20px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    border-top: 1px solid #e9ecef;
+}
+
+.llm-settings h3 {
+    color: #495057;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 1.2em;
+}
+
+.llm-settings .control-group {
+    margin-bottom: 15px;
+}
+
+.llm-settings textarea {
+    width: 100%;
+    min-height: 80px;
+    padding: 10px;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    resize: vertical;
+    transition: border-color 0.3s ease;
+}
+
+.llm-settings textarea:focus {
+    outline: none;
+    border-color: #4facfe;
+}
+
+.llm-settings textarea[readonly] {
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.llm-settings input[type="text"],
+.llm-settings input[type="password"] {
+    width: 200px;
+    padding: 8px;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+}
+
+.llm-settings input[type="text"]:focus,
+.llm-settings input[type="password"]:focus {
+    outline: none;
+    border-color: #4facfe;
+}
+
+.llm-settings button {
+    margin-left: 10px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.llm-settings button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
+
+#testConnectionBtn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+#saveApiKeyBtn {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+}
+
+#generateBtn {
+    background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);
+    color: white;
+}
+
+#closeSettingsBtn {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+}
+
 .status {
     padding: 20px;
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);

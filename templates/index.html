@@ -64,6 +64,64 @@
             </div>
         </div>
 
+        <!-- LLM 功能区域 -->
+        <div class="controls" id="llmControls">
+            <div class="control-group">
+                <label>🤖 LLM 算法生成</label>
+                <button onclick="toggleLLMSettings()" id="llmSettingsBtn">设置 LLM</button>
+            </div>
+
+            <div class="control-group">
+                <label>自定义算法:</label>
+                <select id="customAlgorithmSelect">
+                    <option value="">选择自定义算法</option>
+                </select>
+                <button onclick="executeCustomAlgorithm()" id="executeCustomBtn">执行</button>
+            </div>
+        </div>
+
+        <!-- LLM 设置面板 -->
+        <div class="llm-settings" id="llmSettings" style="display: none;">
+            <h3>🤖 LLM 设置</h3>
+
+            <div class="control-group">
+                <label>API 提供商:</label>
+                <select id="llmProvider">
+                    <option value="modelscope">魔搭社区</option>
+                    <option value="siliconflow">硅基流动</option>
+                    <option value="deepseek">DeepSeek</option>
+                    <option value="openrouter">OpenRouter</option>
+                </select>
+                <button onclick="testConnection()" id="testConnectionBtn">测试连接</button>
+            </div>
+
+            <div class="control-group">
+                <label>API 密钥:</label>
+                <input type="password" id="apiKeyInput" placeholder="请输入 API 密钥">
+                <button onclick="saveApiKey()" id="saveApiKeyBtn">保存密钥</button>
+            </div>
+
+            <div class="control-group">
+                <label>算法描述:</label>
+                <textarea id="algorithmDescription" placeholder="描述你想要的寻路算法，例如：一个贪心算法，总是选择距离终点最近的节点"></textarea>
+            </div>
+
+            <div class="control-group">
+                <label>算法名称:</label>
+                <input type="text" id="algorithmName" placeholder="自定义算法名称">
+                <button onclick="generateAlgorithm()" id="generateBtn">生成算法</button>
+            </div>
+
+            <div class="control-group">
+                <label>生成的代码:</label>
+                <textarea id="generatedCode" readonly placeholder="生成的算法代码将显示在这里"></textarea>
+            </div>
+
+            <div class="control-group">
+                <button onclick="hideLLMSettings()" id="closeSettingsBtn">关闭设置</button>
+            </div>
+        </div>
+
         <div class="legend">
             <div class="legend-item">
                 <div class="legend-color empty"></div>
