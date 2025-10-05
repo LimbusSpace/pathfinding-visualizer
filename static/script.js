@@ -177,23 +177,45 @@ class PathfindingVisualizer {
                 throw new Error('Failed to set grid');
             }
 
-            const pathResponse = await fetch('/find_path', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    algorithm: algorithm,
-                    diagonal: diagonal,
-                    heuristic: heuristic
-                })
-            });
+            let result;
 
-            if (!pathResponse.ok) {
-                throw new Error('Failed to find path');
+            // 检查是否为自定义算法
+            if (llmManager.isCustomAlgorithm(algorithm)) {
+                const customAlgorithmName = llmManager.getCustomAlgorithmName(algorithm);
+                const customResponse = await fetch('/llm/execute_custom', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: customAlgorithmName
+                    })
+                });
+
+                if (!customResponse.ok) {
+                    throw new Error('Failed to execute custom algorithm');
+                }
+
+                result = await customResponse.json();
+            } else {
+                const pathResponse = await fetch('/find_path', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        algorithm: algorithm,
+                        diagonal: diagonal,
+                        heuristic: heuristic
+                    })
+                });
+
+                if (!pathResponse.ok) {
+                    throw new Error('Failed to find path');
+                }
+
+                result = await pathResponse.json();
             }
-
-            const result = await pathResponse.json();
 
             if (result.success) {
                 await this.animatePathfinding(result.visited, result.path, result.found);
@@ -215,17 +237,54 @@ class PathfindingVisualizer {
     }
 
     getAnimationSpeed() {
-        const speed = document.getElementById('animationSpeed').value;
-        switch (speed) {
+        const visitedSpeed = document.getElementById('visitedSpeed').value;
+        const movementSpeed = document.getElementById('movementSpeed').value;
+
+        let visitedDelay, pathDelay, batchSize;
+
+        // 设置已访问路径速度（比原来慢两个档次）
+        switch (visitedSpeed) {
             case 'fast':
-                return { visited: 0, path: 20, batchSize: 15 }; // 最快基本无延迟
+                visitedDelay = 10;      // 原来是 0，现在是 10
+                batchSize = 15;
+                break;
             case 'medium':
-                return { visited: 3, path: 100, batchSize: 8 }; // 中等速度
+                visitedDelay = 30;     // 原来是 3，现在是 30
+                batchSize = 8;
+                break;
             case 'slow':
-                return { visited: 10, path: 200, batchSize: 3 }; // 最慢更详细
+                visitedDelay = 100;    // 原来是 10，现在是 100
+                batchSize = 3;
+                break;
+            case 'very-slow':
+                visitedDelay = 200;    // 新增的很慢档位
+                batchSize = 2;
+                break;
+            case 'ultra-slow':
+                visitedDelay = 400;    // 新增的极慢档位
+                batchSize = 1;
+                break;
             default:
-                return { visited: 0, path: 20, batchSize: 15 }; // 默认最快
+                visitedDelay = 10;
+                batchSize = 15;
         }
+
+        // 设置移动路径速度（保持原来的速度）
+        switch (movementSpeed) {
+            case 'fast':
+                pathDelay = 20;
+                break;
+            case 'medium':
+                pathDelay = 100;
+                break;
+            case 'slow':
+                pathDelay = 200;
+                break;
+            default:
+                pathDelay = 20;
+        }
+
+        return { visited: visitedDelay, path: pathDelay, batchSize: batchSize };
     }
 
     async animatePathfinding(visited, path, found) {
@@ -381,21 +440,24 @@ llmManager = {
             this.providers = config.providers;
             this.currentProvider = config.current_provider;
             this.initialized = true;
-            this.updateAlgorithmList();
+            this.loadCustomAlgorithms();
         } catch (error) {
             console.error('LLM 配置加载失败:', error);
         }
     },
 
     updateAlgorithmList() {
-        const select = document.getElementById('customAlgorithmSelect');
-        select.innerHTML = '<option value="">选择自定义算法</option>';
+        const customGroup = document.getElementById('customAlgorithmsGroup');
+        if (!customGroup) return;
+
+        // 清除现有的自定义算法选项
+        customGroup.innerHTML = '';
 
         this.customAlgorithms.forEach(algorithm => {
             const option = document.createElement('option');
-            option.value = algorithm;
+            option.value = 'custom_' + algorithm;
             option.textContent = algorithm;
-            select.appendChild(option);
+            customGroup.appendChild(option);
         });
     },
 
@@ -410,6 +472,14 @@ llmManager = {
         } catch (error) {
             console.error('加载自定义算法失败:', error);
         }
+    },
+
+    isCustomAlgorithm(algorithm) {
+        return algorithm.startsWith('custom_');
+    },
+
+    getCustomAlgorithmName(algorithm) {
+        return algorithm.substring(7); // 移除 'custom_' 前缀
     }
 };
 
@@ -438,6 +508,31 @@ function hideLLMSettings() {
     const btn = document.getElementById('llmSettingsBtn');
     settings.style.display = 'none';
     btn.textContent = '设置 LLM';
+}
+
+function updateProviderDisplay() {
+    const provider = document.getElementById('llmProvider').value;
+    const displayText = document.querySelector('#llmProvider + span');
+
+    let modelText = '';
+    switch (provider) {
+        case 'deepseek':
+            modelText = 'DeepSeek V3.1 Terminus';
+            break;
+        case 'siliconflow':
+            modelText = '硅基流动模型';
+            break;
+        case 'modelscope':
+            modelText = '魔搭社区模型';
+            break;
+        case 'openrouter':
+            modelText = 'OpenRouter模型';
+            break;
+        default:
+            modelText = '未知模型';
+    }
+
+    displayText.textContent = '当前使用: ' + modelText;
 }
 
 async function saveApiKey() {
@@ -494,19 +589,70 @@ async function testConnection() {
         const result = await response.json();
         if (result.success) {
             if (result.connected) {
-                alert('连接成功！API密钥可用');
+                showSuccessMessage('连接成功！API密钥可用');
             } else {
-                alert('连接失败，请检查API密钥');
+                showDetailedErrorMessage('连接失败', [
+                    'API密钥可能无效或已过期',
+                    '请检查密钥是否正确复制',
+                    '确认账户余额充足',
+                    '尝试重新生成API密钥'
+                ]);
             }
         } else {
-            alert('测试失败: ' + result.error);
+            showDetailedErrorMessage('测试失败', [result.error]);
         }
     } catch (error) {
-        alert('测试失败: ' + error.message);
+        console.error('连接测试错误:', error);
+        showDetailedErrorMessage('网络错误', [
+            '无法连接到服务器',
+            '请检查网络连接',
+            '错误详情: ' + error.message,
+            '可能是防火墙或代理设置问题'
+        ]);
     } finally {
         btn.textContent = '测试连接';
         btn.disabled = false;
     }
+}
+
+function showSuccessMessage(message) {
+    alert('✅ ' + message);
+}
+
+function showDetailedErrorMessage(title, details) {
+    const fullMessage = '❌ ' + title + '\n\n' +
+                        '🔧 排查建议:\n' +
+                        details.map((detail, index) => `${index + 1}. ${detail}`).join('\n');
+    alert(fullMessage);
+}
+
+// 速度调节函数
+function adjustVisitedSpeed(direction) {
+    const select = document.getElementById('visitedSpeed');
+    const options = Array.from(select.options);
+    const currentIndex = select.selectedIndex;
+
+    let newIndex = currentIndex + direction;
+    if (newIndex < 0) newIndex = 0;
+    if (newIndex >= options.length) newIndex = options.length - 1;
+
+    select.selectedIndex = newIndex;
+}
+
+function adjustMovementSpeed(direction) {
+    const select = document.getElementById('movementSpeed');
+    const options = Array.from(select.options);
+    const currentIndex = select.selectedIndex;
+
+    let newIndex = currentIndex + direction;
+    if (newIndex < 0) newIndex = 0;
+    if (newIndex >= options.length) newIndex = options.length - 1;
+
+    select.selectedIndex = newIndex;
+}
+
+function goToAlgorithmLibrary() {
+    window.location.href = '/algorithm_library';
 }
 
 async function generateAlgorithm() {
@@ -546,74 +692,48 @@ async function generateAlgorithm() {
         const result = await response.json();
         if (result.success) {
             codeArea.value = result.code;
-            alert('算法生成成功！');
+            showSuccessMessage('算法生成成功！DeepSeek V3.1 Terminus 已为您创建了高质量的寻路算法代码。');
             llmManager.loadCustomAlgorithms();
         } else {
             codeArea.value = '生成失败: ' + result.error;
-            alert('生成失败: ' + result.error);
+            if (result.error.includes('API key') || result.error.includes('API密钥')) {
+                showDetailedErrorMessage('API配置错误', [
+                    '请先配置有效的API密钥',
+                    '点击"测试连接"验证密钥是否可用',
+                    '如果问题持续，尝试重新生成API密钥',
+                    '也可以尝试切换到其他LLM提供商'
+                ]);
+            } else if (result.error.includes('network') || result.error.includes('网络')) {
+                showDetailedErrorMessage('网络连接错误', [
+                    '请检查网络连接是否正常',
+                    '可能是网络不稳定导致请求失败',
+                    '等待几分钟后重试',
+                    '或尝试使用其他LLM提供商'
+                ]);
+            } else {
+                showDetailedErrorMessage('算法生成失败', [
+                    '错误信息: ' + result.error,
+                    '请检查算法描述是否清晰明确',
+                    '尝试使用更具体的技术术语',
+                    '或简化描述重新生成'
+                ]);
+            }
         }
     } catch (error) {
+        console.error('算法生成错误:', error);
         codeArea.value = '生成失败: ' + error.message;
-        alert('生成失败: ' + error.message);
+        showDetailedErrorMessage('系统错误', [
+            '系统发生了未知错误',
+            '错误详情: ' + error.message,
+            '请刷新页面后重试',
+            '如果问题持续，请检查控制台日志'
+        ]);
     } finally {
         generateBtn.textContent = '生成算法';
         generateBtn.disabled = false;
     }
 }
 
-async function executeCustomAlgorithm() {
-    const algorithmSelect = document.getElementById('customAlgorithmSelect');
-    const algorithmName = algorithmSelect.value;
-
-    if (!algorithmName) {
-        alert('请选择一个自定义算法');
-        return;
-    }
-
-    if (!visualizer.startPos || !visualizer.endPos) {
-        alert('请先设置起点和终点');
-        return;
-    }
-
-    if (visualizer.isAnimating) {
-        alert('正在执行寻路，请稍候');
-        return;
-    }
-
-    visualizer.isAnimating = true;
-    document.getElementById('startBtn').disabled = true;
-    document.getElementById('executeCustomBtn').disabled = true;
-
-    try {
-        visualizer.updateStatus('正在执行自定义算法...');
-
-        // 清除现有路径
-        visualizer.clearPath();
-
-        const response = await fetch('/llm/execute_custom', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: algorithmName
-            })
-        });
-
-        const result = await response.json();
-        if (result.success) {
-            await visualizer.animateCustomPathfinding(result.path, result.visited, result.found);
-        } else {
-            visualizer.updateStatus('算法执行失败: ' + result.error);
-        }
-    } catch (error) {
-        visualizer.updateStatus('执行失败: ' + error.message);
-    } finally {
-        visualizer.isAnimating = false;
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('executeCustomBtn').disabled = false;
-    }
-}
 
 // 在 PathfindingVisualizer 类中添加自定义算法动画方法
 PathfindingVisualizer.prototype.animateCustomPathfinding = async function(path, visited, found) {
@@ -634,7 +754,7 @@ PathfindingVisualizer.prototype.animateCustomPathfinding = async function(path, 
             const [y, x] = visited[i];
             if (this.grid[y][x] === this.cellTypes.EMPTY) {
                 this.grid[y][x] = this.cellTypes.VISITED;
-                this.updateCell(x, y);
+                this.updateGridCell(x, y);
             }
         }
 
@@ -663,7 +783,7 @@ PathfindingVisualizer.prototype.animateCustomPath = async function(path, delay) 
             const [y, x] = path[index];
             if (this.grid[y][x] === this.cellTypes.VISITED || this.grid[y][x] === this.cellTypes.EMPTY) {
                 this.grid[y][x] = this.cellTypes.PATH;
-                this.updateCell(x, y);
+                this.updateGridCell(x, y);
             }
             index--;
             setTimeout(animatePath, delay);

@@ -328,7 +328,7 @@ class CustomAlgorithmExecutor:
     def __init__(self):
         self.custom_algorithms = {}
 
-    def load_algorithm(self, algorithm_name: str, algorithm_code: str) -> bool:
+    def load_algorithm(self, algorithm_name: str, algorithm_code: str, description: str = '') -> bool:
         try:
             namespace = {
                 'List': list,
@@ -346,7 +346,12 @@ class CustomAlgorithmExecutor:
                     hasattr(obj, 'get_visited_order') and
                     callable(getattr(obj, 'find_path')) and
                     callable(getattr(obj, 'get_visited_order'))):
-                    self.custom_algorithms[algorithm_name] = obj
+                    self.custom_algorithms[algorithm_name] = {
+                        'class': obj,
+                        'code': algorithm_code,
+                        'description': description,
+                        'created_at': time.time()
+                    }
                     return True
 
             return False
@@ -370,7 +375,7 @@ class CustomAlgorithmExecutor:
             return [], []
 
         try:
-            algorithm_class = self.custom_algorithms[algorithm_name]
+            algorithm_class = self.custom_algorithms[algorithm_name]['class']
             algorithm_instance = algorithm_class(width, height)
 
             converted_grid = self._convert_grid(grid)
@@ -400,8 +405,15 @@ class CustomAlgorithmExecutor:
             converted.append(converted_row)
         return converted
 
-    def get_available_algorithms(self) -> List[str]:
-        return list(self.custom_algorithms.keys())
+    def get_available_algorithms(self) -> List[dict]:
+        algorithms = []
+        for name, info in self.custom_algorithms.items():
+            algorithms.append({
+                'name': name,
+                'description': info.get('description', ''),
+                'created_at': info.get('created_at', 0)
+            })
+        return algorithms
 
     def remove_algorithm(self, algorithm_name: str) -> bool:
         if algorithm_name in self.custom_algorithms:

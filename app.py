@@ -17,6 +17,10 @@ algorithm_instance = None
 def index():
     return render_template('index.html')
 
+@app.route('/algorithm_library')
+def algorithm_library():
+    return render_template('algorithm_library.html')
+
 @app.route('/init_grid', methods=['POST'])
 def init_grid():
     global algorithm_instance
@@ -247,7 +251,7 @@ def get_custom_algorithms():
 
 @app.route('/llm/remove_algorithm', methods=['POST'])
 def remove_algorithm():
-    """移除自定义算法"""
+    """移除自定义算法 (旧接口，保持兼容)"""
     data = request.json
     algorithm_name = data.get('name')
 
@@ -255,6 +259,72 @@ def remove_algorithm():
         return jsonify({'success': True})
     else:
         return jsonify({'success': False, 'error': 'Algorithm not found'}), 400
+
+@app.route('/llm/delete_algorithm', methods=['POST'])
+def delete_algorithm():
+    """删除自定义算法"""
+    data = request.json
+    algorithm_name = data.get('name')
+
+    if algorithm_executor.remove_algorithm(algorithm_name):
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Algorithm not found'}), 400
+
+@app.route('/llm/get_algorithm', methods=['POST'])
+def get_algorithm():
+    """获取算法代码"""
+    data = request.json
+    algorithm_name = data.get('name')
+
+    if algorithm_name in algorithm_executor.custom_algorithms:
+        return jsonify({
+            'success': True,
+            'code': algorithm_executor.custom_algorithms[algorithm_name]['code']
+        })
+    else:
+        return jsonify({'success': False, 'error': 'Algorithm not found'}), 400
+
+@app.route('/llm/get_algorithm_info', methods=['POST'])
+def get_algorithm_info():
+    """获取算法信息"""
+    data = request.json
+    algorithm_name = data.get('name')
+
+    if algorithm_name in algorithm_executor.custom_algorithms:
+        algorithm_info = algorithm_executor.custom_algorithms[algorithm_name]
+        return jsonify({
+            'success': True,
+            'description': algorithm_info.get('description', ''),
+            'created_at': algorithm_info.get('created_at', '')
+        })
+    else:
+        return jsonify({'success': False, 'error': 'Algorithm not found'}), 400
+
+@app.route('/llm/save_algorithm', methods=['POST'])
+def save_algorithm():
+    """保存算法"""
+    data = request.json
+    algorithm_name = data.get('name')
+    description = data.get('description', '')
+    code = data.get('code')
+    old_name = data.get('old_name')  # 如果是重命名，提供旧名称
+
+    if not algorithm_name or not code:
+        return jsonify({'success': False, 'error': 'Algorithm name and code are required'}), 400
+
+    try:
+        # 如果是重命名，先删除旧的
+        if old_name and old_name != algorithm_name and old_name in algorithm_executor.custom_algorithms:
+            algorithm_executor.remove_algorithm(old_name)
+
+        # 尝试加载新算法以验证代码
+        if algorithm_executor.load_algorithm(algorithm_name, code, description):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Algorithm code is invalid or cannot be loaded'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 def open_browser():
     """延迟打开浏览器，确保服务器已启动"""

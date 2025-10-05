@@ -30,6 +30,9 @@
                     <option value="astar">A* 算法</option>
                     <option value="dijkstra">Dijkstra 算法</option>
                     <option value="bfs">广度优先搜索</option>
+                    <optgroup id="customAlgorithmsGroup" label="自定义算法">
+                        <!-- 自定义算法将动态添加到这里 -->
+                    </optgroup>
                 </select>
             </div>
 
@@ -49,12 +52,27 @@
             </div>
 
             <div class="control-group">
-                <label>探路速度:</label>
-                <select id="animationSpeed">
+                <label>已访问路径速度:</label>
+                <select id="visitedSpeed">
                     <option value="fast" selected>最快</option>
                     <option value="medium">中等</option>
-                    <option value="slow">最慢</option>
+                    <option value="slow">慢速</option>
+                    <option value="very-slow">很慢</option>
+                    <option value="ultra-slow">极慢</option>
                 </select>
+                <button onclick="adjustVisitedSpeed(-1)">调慢</button>
+                <button onclick="adjustVisitedSpeed(1)">调快</button>
+            </div>
+
+            <div class="control-group">
+                <label>移动速度:</label>
+                <select id="movementSpeed">
+                    <option value="fast" selected>最快</option>
+                    <option value="medium">中等</option>
+                    <option value="slow">慢速</option>
+                </select>
+                <button onclick="adjustMovementSpeed(-1)">调慢</button>
+                <button onclick="adjustMovementSpeed(1)">调快</button>
             </div>
 
             <div class="control-group">
@@ -70,13 +88,15 @@
                 <label>🤖 LLM 算法生成</label>
                 <button onclick="toggleLLMSettings()" id="llmSettingsBtn">设置 LLM</button>
             </div>
-
             <div class="control-group">
-                <label>自定义算法:</label>
-                <select id="customAlgorithmSelect">
-                    <option value="">选择自定义算法</option>
-                </select>
-                <button onclick="executeCustomAlgorithm()" id="executeCustomBtn">执行</button>
+                <button onclick="goToAlgorithmLibrary()">📖 算法库管理</button>
+            </div>
+            <div class="control-group">
+                <div style="background-color: #e8f4fd; padding: 8px; border-radius: 4px; border-left: 4px solid #2196F3;">
+                    <span style="font-size: 0.9em; color: #1976D2;">
+                        <strong>💡 提示：</strong>当前使用 <strong>DeepSeek V3.1 Terminus</strong> 模型，具有更强的代码理解和生成能力
+                    </span>
+                </div>
             </div>
         </div>
 
@@ -86,13 +106,14 @@
 
             <div class="control-group">
                 <label>API 提供商:</label>
-                <select id="llmProvider">
+                <select id="llmProvider" onchange="updateProviderDisplay()">
                     <option value="modelscope">魔搭社区</option>
                     <option value="siliconflow">硅基流动</option>
-                    <option value="deepseek">DeepSeek</option>
+                    <option value="deepseek" selected>DeepSeek V3.1 Terminus</option>
                     <option value="openrouter">OpenRouter</option>
                 </select>
                 <button onclick="testConnection()" id="testConnectionBtn">测试连接</button>
+                <span style="margin-left: 10px; color: #666; font-size: 0.9em;">当前使用: DeepSeek V3.1 Terminus</span>
             </div>
 
             <div class="control-group">
@@ -103,7 +124,7 @@
 
             <div class="control-group">
                 <label>算法描述:</label>
-                <textarea id="algorithmDescription" placeholder="描述你想要的寻路算法，例如：一个贪心算法，总是选择距离终点最近的节点"></textarea>
+                <textarea id="algorithmDescription" placeholder="详细描述你想要的寻路算法，例如：&#10;1. 创建一个贪心寻路算法，每次选择距离终点最近的节点&#10;2. 实现一个双向BFS算法，从起点和终点同时搜索&#10;3. 设计一个A*变种，使用不同的启发式函数"></textarea>
             </div>
 
             <div class="control-group">

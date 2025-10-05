@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寻路算法库 | 寻路算法可视化</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .algorithm-library {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .library-header {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+
+        .algorithm-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .algorithm-list {
+            display: grid;
+            gap: 20px;
+        }
+
+        .algorithm-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .algorithm-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .algorithm-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .algorithm-info h3 {
+            margin: 0 0 5px 0;
+            color: #333;
+        }
+
+        .algorithm-info p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .algorithm-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+
+        .code-preview {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .documentation {
+            background-color: #e8f4fd;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .documentation h3 {
+            margin-top: 0;
+            color: #0c5460;
+        }
+
+        .documentation h4 {
+            color: #0c5460;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+
+        .documentation ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        .documentation code {
+            background-color: #f8f9fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e83e8c;
+        }
+
+        .edit-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            height: 400px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #495057;
+        }
+
+        .status-message {
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .status-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .examples-container {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .example-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+
+        .example-section h3 {
+            margin-top: 0;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .example-section p {
+            color: #6c757d;
+            margin-bottom: 15px;
+        }
+
+        .example-section details {
+            margin-top: 10px;
+        }
+
+        .example-section summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: #007bff;
+            padding: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+
+        .example-section summary:hover {
+            background-color: #dee2e6;
+        }
+
+        .example-section details[open] summary {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="algorithm-library">
+        <a href="/" class="back-link">← 返回主页</a>
+
+        <div class="library-header">
+            <h1>🗂️ 寻路算法库</h1>
+            <p>查看、编辑和管理您的自定义寻路算法</p>
+        </div>
+
+        <div id="statusMessage" class="status-message"></div>
+
+        <div class="algorithm-controls">
+            <button class="btn btn-success" onclick="createNewAlgorithm()">➕ 创建新算法</button>
+            <button class="btn btn-primary" onclick="viewExamples()">📖 查看示例算法</button>
+            <button class="btn btn-secondary" onclick="refreshAlgorithmList()">🔄 刷新列表</button>
+        </div>
+
+        <div class="documentation">
+            <h3>📚 算法编写指南</h3>
+            <p>在编写寻路算法时，您可以使用以下预定义的变量和函数：</p>
+
+            <h4>可用变量：</h4>
+            <ul>
+                <li><code>grid</code> - 二维数组，表示网格状态 (0: 空地, 1: 障碍物, 2: 起点, 3: 终点)</li>
+                <li><code>start_pos</code> - 起点坐标 [y, x]</li>
+                <li><code>end_pos</code> - 终点坐标 [y, x]</li>
+                <li><code>width</code> - 网格宽度</li>
+                <li><code>height</code> - 网格高度</li>
+                <li><code>diagonal</code> - 是否允许对角线移动 (布尔值)</li>
+            </ul>
+
+            <h4>辅助函数：</h4>
+            <ul>
+                <li><code>get_neighbors(y, x)</code> - 获取指定位置的邻居节点坐标列表</li>
+                <li><code>heuristic(y1, x1, y2, x2)</code> - 计算两点间的启发式距离</li>
+                <li><code>is_valid_position(y, x)</code> - 检查位置是否有效</li>
+            </ul>
+
+            <h4>返回格式：</h4>
+            <p>您的算法需要返回一个包含以下信息的字典：</p>
+            <ul>
+                <li><code>visited</code> - 访问过的节点坐标列表 [[y, x], [y, x], ...]</li>
+                <li><code>path</code> - 找到的路径坐标列表 [[y, x], [y, x], ...]</li>
+                <li><code>found</code> - 是否找到路径 (布尔值)</li>
+            </ul>
+
+            <h4>示例算法结构：</h4>
+            <pre style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto;">
+class CustomPathfindingAlgorithm:
+    def __init__(self, width: int, height: int):
+        self.width = width
+        self.height = height
+        self.visited_order = []
+
+    def find_path(self, grid, start, end) -> List[Tuple[int, int]]:
+        """
+        主要寻路方法
+
+        参数:
+            grid: 二维数组，0=空地, 1=障碍物, 2=起点, 3=终点
+            start: 起点坐标 (y, x)
+            end: 终点坐标 (y, x)
+
+        返回:
+            路径坐标列表 [(y1, x1), (y2, x2), ...]
+        """
+        self.visited_order = []  # 重置访问顺序
+
+        # 实现您的寻路算法...
+        # 例如：BFS, DFS, A*, Dijkstra等
+
+        return []  # 返回找到的路径
+
+    def get_visited_order(self) -> List[Tuple[int, int]]:
+        """
+        获取访问节点的顺序（用于可视化）
+
+        返回:
+            访问顺序列表 [(y1, x1), (y2, x2), ...]
+        """
+        return self.visited_order</pre>
+        </div>
+
+        <div class="documentation" style="background-color: #fff3cd; border-color: #ffeaa7; margin-top: 20px;">
+            <h3>🔧 AI生成算法故障排除</h3>
+            <p>如果AI生成的算法无法运行，通常是因为以下原因：</p>
+
+            <h4>常见问题及解决方案：</h4>
+            <ul>
+                <li><strong>网格数据类型错误</strong>：AI可能假设grid包含CellType枚举，但实际传入的是整数
+                    <pre style="background-color: #f8f9fa; padding: 5px; margin: 5px 0; font-size: 0.8em;">
+# 错误写法：
+if grid[y][x] != CellType.WALL:  # CellType不存在
+
+# 正确写法：
+if grid[y][x] != 1:  # 1 表示障碍物</pre>
+                </li>
+
+                <li><strong>坐标系统混淆</strong>：系统使用 (y, x) 格式，AI可能使用 (x, y)
+                    <pre style="background-color: #f8f9fa; padding: 5px; margin: 5px 0; font-size: 0.8em;">
+# 正确的坐标格式：
+start = (y, x)  # 行, 列
+end = (y, x)    # 行, 列</pre>
+                </li>
+
+                <li><strong>visited_order使用错误</strong：必须在find_path中记录访问顺序
+                    <pre style="background-color: #f8f9fa; padding: 5px; margin: 5px 0; font-size: 0.8em;">
+# 在find_path开始时重置：
+self.visited_order = []
+
+# 访问节点时添加：
+self.visited_order.append((y, x))</pre>
+                </li>
+
+                <li><strong>方法签名不匹配</strong>：确保类和方法签名正确
+                    <pre style="background-color: #f8f9fa; padding: 5px; margin: 5px 0; font-size: 0.8em;">
+class CustomPathfindingAlgorithm:
+    def __init__(self, width: int, height: int):
+        self.width = width
+        self.height = height
+        self.visited_order = []
+
+    def find_path(self, grid, start, end) -> List[Tuple[int, int]]:
+        # 实现算法...
+
+    def get_visited_order(self) -> List[Tuple[int, int]]:
+        return self.visited_order</pre>
+                </li>
+
+                <li><strong>复杂的算法实现</strong>：避免过于复杂的高级算法，从简单BFS开始
+                    <pre style="background-color: #f8f9fa; padding: 5px; margin: 5px 0; font-size: 0.8em;">
+# 推荐使用简单可靠的算法：
+- BFS（广度优先搜索）
+- DFS（深度优先搜索）
+- 简化的A*算法
+
+# 避免过于复杂的算法：
+- Jump Point Search（容易出错）
+- 复杂的混合算法
+- 需要大量数学计算的算法</pre>
+                </li>
+            </ul>
+
+            <h4>建议解决方案：</h4>
+            <ol>
+                <li>使用页面提供的标准BFS模板作为基础</li>
+                <li>查看示例算法中的A*、Dijkstra、BFS实现</li>
+                <li>先用简单的测试用例验证算法</li>
+                <li>逐步添加复杂功能，确保每步都正确</li>
+                <li>如果AI生成的代码有问题，可以参考示例算法手动修正</li>
+            </ol>
+        </div>
+
+        <div id="algorithmList" class="algorithm-list">
+            <!-- 算法列表将动态加载到这里 -->
+        </div>
+    </div>
+
+    <!-- 编辑模态框 -->
+    <div id="editModal" class="edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">编辑算法</h2>
+                <button class="close-btn" onclick="closeEditModal()">&times;</button>
+            </div>
+
+            <form id="editForm">
+                <div class="form-group">
+                    <label for="algorithmName">算法名称：</label>
+                    <input type="text" id="algorithmName" name="algorithmName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="algorithmDescription">算法描述：</label>
+                    <input type="text" id="algorithmDescription" name="algorithmDescription" placeholder="简要描述算法的功能和特点">
+                </div>
+
+                <div class="form-group">
+                    <label for="algorithmCode">算法代码：</label>
+                    <textarea id="algorithmCode" name="algorithmCode" placeholder="输入您的寻路算法代码..." required></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存算法</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 示例算法模态框 -->
+    <div id="examplesModal" class="edit-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📖 示例算法</h2>
+                <button class="close-btn" onclick="closeExamplesModal()">&times;</button>
+            </div>
+
+            <div class="examples-container">
+                <div class="example-section">
+                    <h3>A* 算法</h3>
+                    <p>A*算法是一种启发式搜索算法，它结合了Dijkstra算法的准确性和贪心算法的效率。</p>
+                    <details>
+                        <summary>查看完整代码</summary>
+                        <pre class="code-preview">def find_path(grid, start_pos, end_pos, width, height, diagonal=False):
+    import heapq
+    import math
+
+    def heuristic(y1, x1, y2, x2):
+        if diagonal:
+            return math.sqrt((y1-y2)**2 + (x1-x2)**2)
+        else:
+            return abs(y1-y2) + abs(x1-x2)
+
+    def get_neighbors(y, x):
+        neighbors = []
+        directions = [(-1,0), (1,0), (0,-1), (0,1)]
+        if diagonal:
+            directions.extend([(-1,-1), (-1,1), (1,-1), (1,1)])
+
+        for dy, dx in directions:
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < height and 0 <= nx < width and grid[ny][nx] != 1:
+                neighbors.append((ny, nx))
+        return neighbors
+
+    start_y, start_x = start_pos
+    end_y, end_x = end_pos
+
+    # 优先队列：(f_score, g_score, y, x, parent)
+    heap = [(heuristic(start_y, start_x, end_y, end_x), 0, start_y, start_x, None)]
+
+    # 记录访问信息
+    visited = []
+    visited_set = set()
+
+    # 记录每个位置的父节点和g值
+    parent = {}
+    g_score = {start_pos: 0}
+    f_score = {start_pos: heuristic(start_y, start_x, end_y, end_x)}
+
+    while heap:
+        current_f, current_g, y, x, current_parent = heapq.heappop(heap)
+        current_pos = (y, x)
+
+        if current_pos in visited_set:
+            continue
+
+        visited_set.add(current_pos)
+        visited.append([y, x])
+
+        if current_pos == end_pos:
+            # 找到终点，重建路径
+            path = []
+            while current_pos in parent:
+                path.append(list(current_pos))
+                current_pos = parent[current_pos]
+            path.append(list(start_pos))
+            path.reverse()
+
+            return {
+                'visited': visited,
+                'path': path,
+                'found': True
+            }
+
+        for ny, nx in get_neighbors(y, x):
+            neighbor_pos = (ny, nx)
+            tentative_g = current_g + (1.414 if diagonal else 1)
+
+            if neighbor_pos not in g_score or tentative_g < g_score[neighbor_pos]:
+                parent[neighbor_pos] = current_pos
+                g_score[neighbor_pos] = tentative_g
+                f_score[neighbor_pos] = tentative_g + heuristic(ny, nx, end_y, end_x)
+                heapq.heappush(heap, (f_score[neighbor_pos], tentative_g, ny, nx, current_pos))
+
+    return {
+        'visited': visited,
+        'path': [],
+        'found': False
+    }</pre>
+                    </details>
+                </div>
+
+                <div class="example-section">
+                    <h3>Dijkstra 算法</h3>
+                    <p>Dijkstra算法是一种经典的单源最短路径算法，保证找到最优路径。</p>
+                    <details>
+                        <summary>查看完整代码</summary>
+                        <pre class="code-preview">def find_path(grid, start_pos, end_pos, width, height, diagonal=False):
+    import heapq
+
+    def get_neighbors(y, x):
+        neighbors = []
+        directions = [(-1,0), (1,0), (0,-1), (0,1)]
+        if diagonal:
+            directions.extend([(-1,-1), (-1,1), (1,-1), (1,1)])
+
+        for dy, dx in directions:
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < height and 0 <= nx < width and grid[ny][nx] != 1:
+                neighbors.append((ny, nx))
+        return neighbors
+
+    start_y, start_x = start_pos
+    end_y, end_x = end_pos
+
+    # 优先队列：(distance, y, x, parent)
+    heap = [(0, start_y, start_x, None)]
+
+    # 记录访问信息
+    visited = []
+    visited_set = set()
+
+    # 记录最短距离和父节点
+    distance = {start_pos: 0}
+    parent = {}
+
+    while heap:
+        current_dist, y, x, current_parent = heapq.heappop(heap)
+        current_pos = (y, x)
+
+        if current_pos in visited_set:
+            continue
+
+        visited_set.add(current_pos)
+        visited.append([y, x])
+
+        if current_pos == end_pos:
+            # 找到终点，重建路径
+            path = []
+            while current_pos in parent:
+                path.append(list(current_pos))
+                current_pos = parent[current_pos]
+            path.append(list(start_pos))
+            path.reverse()
+
+            return {
+                'visited': visited,
+                'path': path,
+                'found': True
+            }
+
+        for ny, nx in get_neighbors(y, x):
+            neighbor_pos = (ny, nx)
+            edge_weight = 1.414 if diagonal else 1
+            tentative_dist = current_dist + edge_weight
+
+            if neighbor_pos not in distance or tentative_dist < distance[neighbor_pos]:
+                distance[neighbor_pos] = tentative_dist
+                parent[neighbor_pos] = current_pos
+                heapq.heappush(heap, (tentative_dist, ny, nx, current_pos))
+
+    return {
+        'visited': visited,
+        'path': [],
+        'found': False
+    }</pre>
+                    </details>
+                </div>
+
+                <div class="example-section">
+                    <h3>广度优先搜索 (BFS)</h3>
+                    <p>广度优先搜索是一种简单的图遍历算法，一层一层地搜索，保证找到最短路径（在无权图中）。</p>
+                    <details>
+                        <summary>查看完整代码</summary>
+                        <pre class="code-preview">def find_path(grid, start_pos, end_pos, width, height, diagonal=False):
+    from collections import deque
+
+    def get_neighbors(y, x):
+        neighbors = []
+        directions = [(-1,0), (1,0), (0,-1), (0,1)]
+        if diagonal:
+            directions.extend([(-1,-1), (-1,1), (1,-1), (1,1)])
+
+        for dy, dx in directions:
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < height and 0 <= nx < width and grid[ny][nx] != 1:
+                neighbors.append((ny, nx))
+        return neighbors
+
+    start_y, start_x = start_pos
+    end_y, end_x = end_pos
+
+    # 队列：(y, x, parent)
+    queue = deque([(start_y, start_x, None)])
+
+    # 记录访问信息
+    visited = []
+    visited_set = set([(start_y, start_x)])
+
+    # 记录父节点
+    parent = {}
+
+    while queue:
+        y, x, current_parent = queue.popleft()
+        current_pos = (y, x)
+
+        visited.append([y, x])
+
+        if current_pos == end_pos:
+            # 找到终点，重建路径
+            path = []
+            while current_pos in parent:
+                path.append(list(current_pos))
+                current_pos = parent[current_pos]
+            path.append(list(start_pos))
+            path.reverse()
+
+            return {
+                'visited': visited,
+                'path': path,
+                'found': True
+            }
+
+        for ny, nx in get_neighbors(y, x):
+            neighbor_pos = (ny, nx)
+            if neighbor_pos not in visited_set:
+                visited_set.add(neighbor_pos)
+                parent[neighbor_pos] = current_pos
+                queue.append((ny, nx, current_pos))
+
+    return {
+        'visited': visited,
+        'path': [],
+        'found': False
+    }</pre>
+                    </details>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeExamplesModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/algorithm_library.js"></script>
+</body>
+</html>
