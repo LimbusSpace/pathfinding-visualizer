@@ -432,6 +432,8 @@ function clearAll() {
 llmManager = {
     initialized: false,
     customAlgorithms: [],
+    currentTaskId: null,
+    taskRefreshInterval: null,
 
     async init() {
         try {
@@ -441,6 +443,7 @@ llmManager = {
             this.currentProvider = config.current_provider;
             this.initialized = true;
             this.loadCustomAlgorithms();
+            this.startTaskMonitoring();
         } catch (error) {
             console.error('LLM 配置加载失败:', error);
         }
@@ -480,6 +483,129 @@ llmManager = {
 
     getCustomAlgorithmName(algorithm) {
         return algorithm.substring(7); // 移除 'custom_' 前缀
+    },
+
+    startTaskMonitoring() {
+        // 启动任务监控
+        this.taskRefreshInterval = setInterval(() => {
+            if (this.currentTaskId) {
+                this.pollTaskStatus(this.currentTaskId);
+            }
+        }, 1000);
+    },
+
+    stopTaskMonitoring() {
+        if (this.taskRefreshInterval) {
+            clearInterval(this.taskRefreshInterval);
+            this.taskRefreshInterval = null;
+        }
+    },
+
+    async pollTaskStatus(taskId) {
+        try {
+            const response = await fetch(`/tasks/${taskId}`);
+            const result = await response.json();
+
+            if (result.success) {
+                const task = result.task;
+                this.updateTaskDisplay(task);
+
+                // 如果任务完成或失败，停止轮询
+                if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
+                    this.currentTaskId = null;
+                    if (task.status === 'completed') {
+                        showSuccessMessage('任务完成！');
+                        // 如果是生成任务，自动填充生成的代码
+                        if (task.result && task.result.code) {
+                            document.getElementById('generatedCode').value = task.result.code;
+                            this.loadCustomAlgorithms(); // 刷新算法列表
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('获取任务状态失败:', error);
+        }
+    },
+
+    updateTaskDisplay(task) {
+        const container = document.getElementById('tasksContainer');
+        if (!container) return;
+
+        const taskElement = document.getElementById(`task-${task.task_id}`);
+        if (taskElement) {
+            // 更新现有任务元素
+            taskElement.innerHTML = this.renderTaskHTML(task);
+        } else {
+            // 添加新任务元素
+            const taskDiv = document.createElement('div');
+            taskDiv.id = `task-${task.task_id}`;
+            taskDiv.className = 'task-card';
+            taskDiv.innerHTML = this.renderTaskHTML(task);
+            container.insertBefore(taskDiv, container.firstChild);
+        }
+    },
+
+    renderTaskHTML(task) {
+        const statusColors = {
+            pending: 'bg-gray-500',
+            running: 'bg-blue-500',
+            paused: 'bg-yellow-500',
+            completed: 'bg-green-500',
+            failed: 'bg-red-500',
+            cancelled: 'bg-gray-400'
+        };
+
+        const statusIcons = {
+            pending: '⏳',
+            running: '🔄',
+            paused: '⏸️',
+            completed: '✅',
+            failed: '❌',
+            cancelled: '🚫'
+        };
+
+        const colorClass = statusColors[task.status] || 'bg-gray-500';
+        const icon = statusIcons[task.status] || '❓';
+
+        const elapsed = task.elapsed_time.toFixed(1);
+        const remaining = task.estimated_remaining_time ? task.estimated_remaining_time.toFixed(1) : null;
+
+        const timeStr = elapsed + 's';
+        if (remaining) {
+            timeStr += ` / 剩余 ${remaining}s`;
+        }
+
+        let actionsHtml = '';
+        if (task.status === 'running') {
+            actionsHtml = `<button onclick="pauseTask('${task.task_id}')" class="btn-small">⏸️</button>`;
+        } else if (task.status === 'paused') {
+            actionsHtml = `<button onclick="resumeTask('${task.task_id}')" class="btn-small">▶️</button>`;
+        }
+        if (task.status === 'running' || task.status === 'paused') {
+            actionsHtml += `<button onclick="cancelTask('${task.task_id}')" class="btn-small">🚫</button>`;
+        }
+        actionsHtml += `<button onclick="removeTask('${task.task_id}')" class="btn-small">🗑️</button>`;
+
+        return `
+            <div class="task-header">
+                <div class="task-info">
+                    <span class="task-icon">${icon}</span>
+                    <span class="task-title">${task.title}</span>
+                </div>
+                <div class="task-time">${timeStr}</div>
+            </div>
+            <div class="task-description">${task.description}</div>
+            <div class="task-status-bar">
+                <div class="progress-bar">
+                    <div class="progress-fill ${colorClass}" style="width: ${task.progress}%"></div>
+                </div>
+                <div class="progress-text">${task.progress.toFixed(1)}%</div>
+            </div>
+            <div class="task-step">${task.current_step}</div>
+            ${task.error_message ? `<div class="task-error">${task.error_message}</div>` : ''}
+            <div class="task-actions">${actionsHtml}</div>
+        `;
     }
 };
 
@@ -794,3 +920,571 @@ PathfindingVisualizer.prototype.animateCustomPath = async function(path, delay) 
 
     animatePath();
 };
+
+// 新增的LLM相关函数
+function toggleGenerationMode() {
+    const mode = document.querySelector('input[name="generationMode"]:checked').value;
+    const generateBtn = document.getElementById('generateBtn');
+    const smartGenerateBtn = document.getElementById('smartGenerateBtn');
+
+    if (mode === 'simple') {
+        generateBtn.style.display = 'inline-block';
+        smartGenerateBtn.style.display = 'none';
+    } else {
+        generateBtn.style.display = 'none';
+        smartGenerateBtn.style.display = 'inline-block';
+    }
+}
+
+async function validateCurrentCode() {
+    const code = document.getElementById('generatedCode').value.trim();
+    const algorithmName = document.getElementById('algorithmName').value.trim() || 'CustomPathfindingAlgorithm';
+
+    if (!code) {
+        alert('请先生成或输入代码');
+        return;
+    }
+
+    try {
+        const response = await fetch('/llm/validate_code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                code: code,
+                algorithm_name: algorithmName
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            displayValidationResult(result.validation_result);
+        } else {
+            showDetailedErrorMessage('验证失败', [result.error]);
+        }
+    } catch (error) {
+        showDetailedErrorMessage('网络错误', [`验证请求失败: ${error.message}`]);
+    }
+}
+
+function displayValidationResult(validationResult) {
+    const resultDiv = document.getElementById('validationResult');
+    const contentDiv = document.getElementById('validationContent');
+
+    resultDiv.style.display = 'block';
+
+    const errors = validationResult.errors;
+    const warnings = validationResult.warnings;
+    const suggestions = validationResult.suggestions;
+
+    let html = '';
+
+    // 总体评分
+    const scoreColor = validationResult.overall_score >= 80 ? 'green' : validationResult.overall_score >= 60 ? 'orange' : 'red';
+    html += `<div class="score-display">
+        <h5>📊 综合评分: <span style="color: ${scoreColor}">${validationResult.overall_score.toFixed(1)}/100</span></h5>
+        <p>${validationResult.is_valid ? '✅ 代码通过验证' : '❌ 代码存在问题'}</p>
+    </div>`;
+
+    // 错误
+    if (errors.length > 0) {
+        html += '<div class="validation-section errors">';
+        html += '<h5>❌ 严重错误 (' + errors.length + ')</h5>';
+        errors.forEach(error => {
+            html += `<div class="validation-item">
+                <div class="validation-message">${error.message}</div>
+                ${error.line_number ? `<div class="validation-line">第 ${error.line_number} 行</div>` : ''}
+                <div class="validation-suggestion">💡 建议: ${error.suggestion}</div>
+            </div>`;
+        });
+        html += '</div>';
+    }
+
+    // 警告
+    if (warnings.length > 0) {
+        html += '<div class="validation-section warnings">';
+        html += '<h5>⚠️ 警告 (' + warnings.length + ')</h5>';
+        warnings.forEach(warning => {
+            html += `<div class="validation-item">
+                <div class="validation-message">${warning.message}</div>
+                ${warning.line_number ? `<div class="validation-line">第 ${warning.line_number} 行</div>` : ''}
+                <div class="validation-suggestion">💡 建议: ${warning.suggestion}</div>
+            </div>`;
+        });
+        html += '</div>';
+    }
+
+    // 建议
+    if (suggestions.length > 0) {
+        html += '<div class="validation-section suggestions">';
+        html += '<h5>💡 改进建议 (' + suggestions.length + ')</h5>';
+        suggestions.forEach(suggestion => {
+            html += `<div class="validation-item">
+                <div class="validation-message">${suggestion.message}</div>
+                ${suggestion.line_number ? `<div class="validation-line">第 ${suggestion.line_number} 行</div>` : ''}
+                <div class="validation-suggestion">📝 ${suggestion.suggestion}</div>
+            </div>`;
+        });
+        html += '</div>';
+    }
+
+    contentDiv.innerHTML = html;
+
+    if (validationResult.is_valid) {
+        showSuccessMessage('代码验证通过！可以保存使用。');
+    }
+}
+
+async function fixCurrentCode() {
+    const code = document.getElementById('generatedCode').value.trim();
+    const algorithmName = document.getElementById('algorithmName').value.trim() || 'CustomPathfindingAlgorithm';
+    const provider = document.getElementById('llmProvider').value;
+
+    if (!code) {
+        alert('请先生成或输入代码');
+        return;
+    }
+
+    if (!confirm('开始智能修复代码？这可能需要一些时间。')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/llm/fix_code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                code: code,
+                algorithm_name: algorithmName,
+                provider: provider
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showSuccessMessage('代码修复任务已启动！');
+            llmManager.currentTaskId = result.task_id;
+            toggleTaskMonitor(); // 自动打开任务监控面板
+        } else {
+            showDetailedErrorMessage('修复启动失败', [result.error]);
+        }
+    } catch (error) {
+        showDetailedErrorMessage('网络错误', [`修复请求失败: ${error.message}`]);
+    }
+}
+
+async function smartGenerateAlgorithm() {
+    const description = document.getElementById('algorithmDescription').value.trim();
+    const algorithmName = document.getElementById('algorithmName').value.trim();
+    const provider = document.getElementById('llmProvider').value;
+
+    if (!description) {
+        alert('请输入算法描述');
+        return;
+    }
+
+    if (!algorithmName) {
+        alert('请输入算法名称');
+        return;
+    }
+
+    const generateBtn = document.getElementById('smartGenerateBtn');
+    const originalText = generateBtn.textContent;
+
+    try {
+        generateBtn.textContent = '智能生成中...';
+        generateBtn.disabled = true;
+
+        const response = await fetch('/llm/generate_and_fix_algorithm', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                description: description,
+                name: algorithmName,
+                provider: provider
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showSuccessMessage('智能算法生成任务已启动！');
+            llmManager.currentTaskId = result.task_id;
+            toggleTaskMonitor(); // 自动打开任务监控面板
+        } else {
+            showDetailedErrorMessage('生成启动失败', [result.error]);
+        }
+    } catch (error) {
+        showDetailedErrorMessage('网络错误', [`生成请求失败: ${error.message}`]);
+    } finally {
+        generateBtn.textContent = originalText;
+        generateBtn.disabled = false;
+    }
+}
+
+async function saveCurrentAlgorithm() {
+    const code = document.getElementById('generatedCode').value.trim();
+    const algorithmName = document.getElementById('algorithmName').value.trim();
+    const description = document.getElementById('algorithmDescription').value.trim();
+
+    if (!code) {
+        alert('请先生成或输入代码');
+        return;
+    }
+
+    if (!algorithmName) {
+        alert('请输入算法名称');
+        return;
+    }
+
+    try {
+        const response = await fetch('/llm/save_algorithm', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: algorithmName,
+                description: description,
+                code: code
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            showSuccessMessage('算法保存成功！');
+            llmManager.loadCustomAlgorithms(); // 刷新算法列表
+        } else {
+            showDetailedErrorMessage('保存失败', [result.error]);
+        }
+    } catch (error) {
+        showDetailedErrorMessage('网络错误', [`保存请求失败: ${error.message}`]);
+    }
+}
+
+// 任务监控相关函数
+function toggleTaskMonitor() {
+    const monitor = document.getElementById('taskMonitor');
+    const btn = document.getElementById('taskMonitorBtn');
+
+    if (monitor.style.display === 'none') {
+        monitor.style.display = 'block';
+        btn.textContent = '隐藏任务进度';
+        refreshTasks(); // 刷新任务列表
+    } else {
+        monitor.style.display = 'none';
+        btn.textContent = '查看任务进度';
+    }
+}
+
+function hideTaskMonitor() {
+    const monitor = document.getElementById('taskMonitor');
+    const btn = document.getElementById('taskMonitorBtn');
+    monitor.style.display = 'none';
+    btn.textContent = '查看任务进度';
+}
+
+async function refreshTasks() {
+    try {
+        const response = await fetch('/tasks');
+        const result = await response.json();
+
+        if (result.success) {
+            displayTasks(result.tasks);
+        } else {
+            console.error('获取任务列表失败:', result.error);
+        }
+    } catch (error) {
+        console.error('刷新任务失败:', error);
+    }
+}
+
+function displayTasks(tasks) {
+    const container = document.getElementById('tasksContainer');
+
+    if (tasks.length === 0) {
+        container.innerHTML = '<div class="no-tasks">当前没有任务</div>';
+        return;
+    }
+
+    // 按状态分组
+    const activeTasks = tasks.filter(t => t.status === 'running' || t.status === 'paused');
+    const completedTasks = tasks.filter(t => t.status === 'completed' || t.status === 'failed' || t.status === 'cancelled');
+
+    let html = '';
+
+    if (activeTasks.length > 0) {
+        html += '<div class="task-section">';
+        html += '<h4>🔄 活跃任务</h4>';
+        activeTasks.forEach(task => {
+            html += createTaskHTML(task);
+        });
+        html += '</div>';
+    }
+
+    if (completedTasks.length > 0) {
+        html += '<div class="task-section">';
+        html += '<h4>📋 已完成任务</h4>';
+        completedTasks.forEach(task => {
+            html += createTaskHTML(task);
+        });
+        html += '</div>';
+    }
+
+    container.innerHTML = html;
+}
+
+function createTaskHTML(task) {
+    const statusColors = {
+        pending: '#6b7280',
+        running: '#3b82f6',
+        paused: '#f59e0b',
+        completed: '#10b981',
+        failed: '#ef4444',
+        cancelled: '#9ca3af'
+    };
+
+    const statusIcons = {
+        pending: '⏳',
+        running: '🔄',
+        paused: '⏸️',
+        completed: '✅',
+        failed: '❌',
+        cancelled: '🚫'
+    };
+
+    const color = statusColors[task.status] || '#6b7280';
+    const icon = statusIcons[task.status] || '❓';
+
+    const actions = [];
+    if (task.status === 'running') {
+        actions.push(`<button onclick="pauseTask('${task.task_id}')" class="btn-task">⏸️</button>`);
+    } else if (task.status === 'paused') {
+        actions.push(`<button onclick="resumeTask('${task.task_id}')" class="btn-task">▶️</button>`);
+    }
+    if (task.status === 'running' || task.status === 'paused') {
+        actions.push(`<button onclick="cancelTask('${task.task_id}')" class="btn-task">🚫</button>`);
+    }
+    actions.push(`<button onclick="removeTask('${task.task_id}')" class="btn-task">🗑️</button>`);
+
+    // 添加详细信息按钮（针对修复任务）
+    let detailButton = '';
+    if (task.task_type === 'FIXING' || task.task_type === 'GENERATION') {
+        detailButton = `<button onclick="showTaskDetails('${task.task_id}')" class="btn-task" title="查看修复详情">📊</button>`;
+        actions.splice(-1, 0, detailButton); // 在删除按钮前插入
+    }
+
+    // 生成详细的修复状态信息
+    let detailHTML = '';
+    if (task.task_type === 'FIXING' && task.fix_history) {
+        detailHTML = createFixDetailHTML(task);
+    }
+
+    return `
+        <div class="task-card" data-task-id="${task.task_id}" data-status="${task.status}">
+            <div class="task-card-header">
+                <div class="task-card-info">
+                    <span class="task-icon">${icon}</span>
+                    <span class="task-title">${task.title}</span>
+                    ${task.task_type ? `<span class="task-type-badge">${getTaskTypeLabel(task.task_type)}</span>` : ''}
+                </div>
+                <div class="task-time">
+                    ${task.elapsed_time.toFixed(1)}s
+                    ${task.estimated_remaining_time ? `/ ${task.estimated_remaining_time.toFixed(1)}s` : ''}
+                </div>
+            </div>
+            <div class="task-description">${task.description}</div>
+            <div class="task-progress-bar">
+                <div class="task-progress-track">
+                    <div class="task-progress-fill" style="width: ${Math.min(task.progress, 100)}%; background-color: ${color}"></div>
+                </div>
+                <span class="task-progress-text">${Math.min(task.progress, 100).toFixed(1)}%</span>
+            </div>
+            <div class="task-step">${task.current_step}</div>
+
+            <!-- 修复状态指标 -->
+            ${task.errors_fixed !== undefined ? `
+                <div class="fix-metrics">
+                    <span class="fix-metric">✅ 修复错误: ${task.errors_fixed}</span>
+                    <span class="fix-metric">⚡ 修复警告: ${task.warnings_fixed}</span>
+                    ${task.iterations ? `<span class="fix-metric">🔄 迭代次数: ${task.iterations}</span>` : ''}
+                </div>
+            ` : ''}
+
+            ${task.error_message ? `<div class="task-error">${task.error_message}</div>` : ''}
+            ${detailHTML}
+            <div class="task-actions">${actions.join('')}</div>
+        </div>
+    `;
+}
+
+function getTaskTypeLabel(taskType) {
+    const labels = {
+        'GENERATION': '🤖 生成',
+        'FIXING': '🔧 修复',
+        'VALIDATION': '🔍 验证'
+    };
+    return labels[taskType] || taskType;
+}
+
+function createFixDetailHTML(task) {
+    if (!task.fix_history || task.fix_history.length === 0) {
+        return '';
+    }
+
+    const latestFix = task.fix_history[task.fix_history.length - 1];
+    let detailHTML = '<div class="task-details" style="display: none;">';
+
+    detailHTML += '<div class="fix-history">';
+    detailHTML += '<h5>🔧 修复历史记录</h5>';
+
+    // 显示最近几次修复
+    const recentFixes = task.fix_history.slice(-3).reverse();
+    recentFixes.forEach((fix, index) => {
+        const originalErrors = fix.original_validation.errors.length;
+        const newErrors = fix.new_validation.errors.length;
+        const errorsFixed = originalErrors - newErrors;
+        const scoreImproved = fix.new_validation.overall_score - fix.original_validation.overall_score;
+
+        detailHTML += `
+            <div class="fix-iteration">
+                <div class="fix-iteration-header">
+                    <span class="fix-iteration-number">第 ${fix.iteration} 轮修复</span>
+                    <span class="fix-iteration-time">${new Date().toLocaleTimeString()}</span>
+                </div>
+                <div class="fix-iteration-stats">
+                    <span class="stat ${errorsFixed > 0 ? 'improved' : ''}">
+                        错误: ${originalErrors} → ${newErrors} ${errorsFixed > 0 ? `(-${errorsFixed})` : ''}
+                    </span>
+                    <span class="stat ${scoreImproved > 0 ? 'improved' : ''}">
+                        分数: ${fix.original_validation.overall_score.toFixed(1)} → ${fix.new_validation.overall_score.toFixed(1)} ${scoreImproved > 0 ? `(+${scoreImproved.toFixed(1)})` : ''}
+                    </span>
+                </div>
+            </div>
+        `;
+    });
+
+    detailHTML += '</div>';
+    detailHTML += '</div>';
+
+    return detailHTML;
+}
+
+async function showTaskDetails(taskId) {
+    try {
+        const response = await fetch(`/tasks/${taskId}`);
+        const result = await response.json();
+
+        if (result.success) {
+            const task = result.task;
+            const detailElement = document.querySelector(`[data-task-id="${taskId}"] .task-details`);
+
+            if (detailElement) {
+                if (detailElement.style.display === 'none') {
+                    detailElement.style.display = 'block';
+                    // 如果还没有详细信息，重新生成
+                    if (detailElement.innerHTML.trim() === '') {
+                        detailElement.innerHTML = createFixDetailHTML(task);
+                    }
+                } else {
+                    detailElement.style.display = 'none';
+                }
+            }
+        } else {
+            alert('获取任务详情失败: ' + result.error);
+        }
+    } catch (error) {
+        console.error('获取任务详情失败:', error);
+    }
+}
+
+async function pauseTask(taskId) {
+    try {
+        const response = await fetch(`/tasks/${taskId}/pause`, { method: 'POST' });
+        const result = await response.json();
+        if (result.success) {
+            refreshTasks();
+        } else {
+            alert('暂停失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('暂停请求失败: ' + error.message);
+    }
+}
+
+async function resumeTask(taskId) {
+    try {
+        const response = await fetch(`/tasks/${taskId}/resume`, { method: 'POST' });
+        const result = await response.json();
+        if (result.success) {
+            refreshTasks();
+        } else {
+            alert('恢复失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('恢复请求失败: ' + error.message);
+    }
+}
+
+async function cancelTask(taskId) {
+    if (!confirm('确定要取消这个任务吗？')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/tasks/${taskId}/cancel`, { method: 'POST' });
+        const result = await response.json();
+        if (result.success) {
+            refreshTasks();
+            llmManager.currentTaskId = null;
+        } else {
+            alert('取消失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('取消请求失败: ' + error.message);
+    }
+}
+
+async function removeTask(taskId) {
+    if (!confirm('确定要移除这个任务记录吗？')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/tasks/${taskId}/remove`, { method: 'DELETE' });
+        const result = await response.json();
+        if (result.success) {
+            // 从DOM中移除任务元素
+            const taskElement = document.getElementById(`task-${taskId}`);
+            if (taskElement) {
+                taskElement.remove();
+            }
+        } else {
+            alert('移除失败: ' + result.error);
+        }
+    } catch (error) {
+        alert('移除请求失败: ' + error.message);
+    }
+}
+
+async function clearCompletedTasks() {
+    if (!confirm('确定要清除所有已完成的任务记录吗？')) {
+        return;
+    }
+
+    // 刷新任务列表，然后在客户端过滤掉已完成的任务
+    const container = document.getElementById('tasksContainer');
+    const taskCards = container.querySelectorAll('.task-card');
+
+    taskCards.forEach(card => {
+        const taskId = card.dataset.taskId;
+        const taskStatus = card.querySelector('.task-icon').textContent;
+        if (['✅', '❌', '🚫'].includes(taskStatus)) {
+            card.remove();
+        }
+    });
+}

@@ -94,9 +94,17 @@
             <div class="control-group">
                 <div style="background-color: #e8f4fd; padding: 8px; border-radius: 4px; border-left: 4px solid #2196F3;">
                     <span style="font-size: 0.9em; color: #1976D2;">
-                        <strong>💡 提示：</strong>当前使用 <strong>DeepSeek V3.1 Terminus</strong> 模型，具有更强的代码理解和生成能力
+                        <strong>💡 提示：</strong>当前使用 <strong>DeepSeek V3系列模型</strong>，具有更强的代码理解和生成能力
                     </span>
                 </div>
+            </div>
+        </div>
+
+        <!-- LLM 任务监控面板 -->
+        <div class="controls" id="taskControls">
+            <div class="control-group">
+                <label>📊 任务监控</label>
+                <button onclick="toggleTaskMonitor()" id="taskMonitorBtn">查看任务进度</button>
             </div>
         </div>
 
@@ -107,19 +115,33 @@
             <div class="control-group">
                 <label>API 提供商:</label>
                 <select id="llmProvider" onchange="updateProviderDisplay()">
-                    <option value="modelscope">魔搭社区</option>
-                    <option value="siliconflow">硅基流动</option>
-                    <option value="deepseek" selected>DeepSeek V3.1 Terminus</option>
+                    <option value="modelscope">魔搭社区 (DeepSeek-V3)</option>
+                    <option value="siliconflow">硅基流动 (DeepSeek-V3.1-Terminus)</option>
+                    <option value="deepseek" selected>DeepSeek官方</option>
                     <option value="openrouter">OpenRouter</option>
                 </select>
                 <button onclick="testConnection()" id="testConnectionBtn">测试连接</button>
-                <span style="margin-left: 10px; color: #666; font-size: 0.9em;">当前使用: DeepSeek V3.1 Terminus</span>
+                <span style="margin-left: 10px; color: #666; font-size: 0.9em;">当前使用: DeepSeek V3系列模型</span>
             </div>
 
             <div class="control-group">
                 <label>API 密钥:</label>
                 <input type="password" id="apiKeyInput" placeholder="请输入 API 密钥">
                 <button onclick="saveApiKey()" id="saveApiKeyBtn">保存密钥</button>
+            </div>
+
+            <div class="control-group">
+                <label>生成模式:</label>
+                <div class="mode-selection">
+                    <label>
+                        <input type="radio" name="generationMode" value="simple" checked onchange="toggleGenerationMode()">
+                        简单生成
+                    </label>
+                    <label>
+                        <input type="radio" name="generationMode" value="smart" onchange="toggleGenerationMode()">
+                        智能生成（自动修复）
+                    </label>
+                </div>
             </div>
 
             <div class="control-group">
@@ -131,6 +153,7 @@
                 <label>算法名称:</label>
                 <input type="text" id="algorithmName" placeholder="自定义算法名称">
                 <button onclick="generateAlgorithm()" id="generateBtn">生成算法</button>
+                <button onclick="smartGenerateAlgorithm()" id="smartGenerateBtn" style="display: none;">🔧 智能生成并修复</button>
             </div>
 
             <div class="control-group">
@@ -138,8 +161,32 @@
                 <textarea id="generatedCode" readonly placeholder="生成的算法代码将显示在这里"></textarea>
             </div>
 
-            <div class="control-group">
+            <div class="control-group action-buttons">
+                <button onclick="validateCurrentCode()" id="validateBtn">🔍 验证代码</button>
+                <button onclick="fixCurrentCode()" id="fixBtn">🔧 修复代码</button>
+                <button onclick="saveCurrentAlgorithm()" id="saveAlgorithmBtn">💾 保存算法</button>
                 <button onclick="hideLLMSettings()" id="closeSettingsBtn">关闭设置</button>
+            </div>
+
+            <!-- 验证结果显示 -->
+            <div class="validation-result" id="validationResult" style="display: none;">
+                <h4>🔍 代码验证结果</h4>
+                <div id="validationContent"></div>
+            </div>
+        </div>
+
+        <!-- 任务监控面板 -->
+        <div class="task-monitor" id="taskMonitor" style="display: none;">
+            <h3>📊 任务进度监控</h3>
+
+            <div class="monitor-controls">
+                <button onclick="refreshTasks()" class="btn-refresh">🔄 刷新</button>
+                <button onclick="clearCompletedTasks()" class="btn-clear">🗑️ 清除已完成</button>
+                <button onclick="hideTaskMonitor()" class="btn-close">❌ 关闭</button>
+            </div>
+
+            <div id="tasksContainer" class="tasks-container">
+                <!-- 任务进度将在这里动态显示 -->
             </div>
         </div>
 

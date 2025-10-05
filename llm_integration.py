@@ -27,8 +27,8 @@ class LLMConfig:
             LLMProvider.OPENROUTER: "https://openrouter.ai/api/v1/chat/completions"
         }
         self.models = {
-            LLMProvider.MODELSCOPE: "Qwen/Qwen2.5-72B-Instruct",
-            LLMProvider.SILICONFLOW: "Qwen/Qwen2.5-72B-Instruct",
+            LLMProvider.MODELSCOPE: "deepseek-ai/DeepSeek-V3",
+            LLMProvider.SILICONFLOW: "deepseek-ai/DeepSeek-V3.1-Terminus",
             LLMProvider.DEEPSEEK: "deepseek-chat",
             LLMProvider.OPENROUTER: "anthropic/claude-3.5-sonnet"
         }

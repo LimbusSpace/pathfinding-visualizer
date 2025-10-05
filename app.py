@@ -2,10 +2,14 @@ from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
 from pathfinding import PathfindingAlgorithm, CellType
 from llm_integration import llm_config, llm_generator, algorithm_executor, LLMProvider
+from code_validator import CodeValidator
+from llm_code_fixer import LLMCodeFixer, FixProgress
+from progress_manager import progress_manager, TaskType, TaskStatus
 import json
 import webbrowser
 import threading
 import time
+import uuid
 
 app = Flask(__name__)
 CORS(app)
@@ -325,6 +329,331 @@ def save_algorithm():
             return jsonify({'success': False, 'error': 'Algorithm code is invalid or cannot be loaded'}), 400
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# 代码验证和修复相关的路由
+@app.route('/llm/validate_code', methods=['POST'])
+def validate_code():
+    """验证算法代码"""
+    data = request.json
+    code = data.get('code', '')
+    algorithm_name = data.get('algorithm_name', 'CustomPathfindingAlgorithm')
+
+    if not code:
+        return jsonify({'success': False, 'error': 'Code is required'}), 400
+
+    try:
+        validator = CodeValidator()
+        result = validator.validate_algorithm_code(code, algorithm_name)
+
+        return jsonify({
+            'success': True,
+            'validation_result': {
+                'is_valid': result.is_valid,
+                'overall_score': result.overall_score,
+                'errors': [
+                    {
+                        'level': error.level.value,
+                        'message': error.message,
+                        'line_number': error.line_number,
+                        'suggestion': error.suggestion,
+                        'code_snippet': error.code_snippet
+                    }
+                    for error in result.errors
+                ],
+                'warnings': [
+                    {
+                        'level': warning.level.value,
+                        'message': warning.message,
+                        'line_number': warning.line_number,
+                        'suggestion': warning.suggestion,
+                        'code_snippet': warning.code_snippet
+                    }
+                    for warning in result.warnings
+                ],
+                'suggestions': [
+                    {
+                        'level': suggestion.level.value,
+                        'message': suggestion.message,
+                        'line_number': suggestion.line_number,
+                        'suggestion': suggestion.suggestion,
+                        'code_snippet': suggestion.code_snippet
+                    }
+                    for suggestion in result.suggestions
+                ]
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/llm/fix_code', methods=['POST'])
+def fix_code():
+    """启动代码修复任务"""
+    data = request.json
+    code = data.get('code', '')
+    algorithm_name = data.get('algorithm_name', 'CustomPathfindingAlgorithm')
+
+    if not code:
+        return jsonify({'success': False, 'error': 'Code is required'}), 400
+
+    try:
+        # 创建任务ID
+        task_id = f"fix_{uuid.uuid4().hex}"
+
+        # 创建任务
+        task = progress_manager.create_task(
+            task_id=task_id,
+            task_type=TaskType.FIXING,
+            title="🔧 算法代码修复",
+            description=f"修复 {algorithm_name} 算法的代码错误",
+            total_steps=5
+        )
+
+        # 启动后台修复任务
+        def run_fix_task():
+            try:
+                # 开始任务
+                progress_manager.start_task(task_id)
+                progress_manager.update_step(task_id, 1, "初始化LLM代码修复器...")
+
+                # 创建LLM修复器
+                fixer = LLMCodeFixer(llm_config)
+                if data.get('provider'):
+                    provider = LLMProvider(data.get('provider'))
+                    fixer.set_provider(provider)
+
+                progress_manager.update_step(task_id, 2, "开始分析代码错误...")
+
+                # 定义进度回调
+                def progress_callback(progress_data):
+                    if 'current_step_name' in progress_data:
+                        step_name = progress_data['current_step_name']
+                        progress = progress_data.get('overall_progress', 0)
+                        progress_manager.update_progress(task_id, progress, step_name)
+
+                progress_manager.update_step(task_id, 3, "进行代码修复...")
+
+                # 执行修复
+                fix_result = fixer.fix_algorithm_code(
+                    code,
+                    algorithm_name,
+                    progress_callback=progress_callback
+                )
+
+                progress_manager.update_step(task_id, 4, "验证修复结果...")
+
+                if fix_result['success']:
+                    progress_manager.update_progress(task_id, 95, "修复完成")
+                    progress_manager.update_step(task_id, 5, "✅ 代码修复成功")
+                    progress_manager.complete_task(task_id, fix_result)
+                else:
+                    progress_manager.fail_task(task_id, f"修复失败: {fix_result.get('error', 'Unknown error')}")
+
+            except Exception as e:
+                progress_manager.fail_task(task_id, f"任务执行失败: {str(e)}")
+
+        # 在后台线程中运行
+        threading.Thread(target=run_fix_task, daemon=True).start()
+
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'message': '代码修复任务已启动'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/llm/generate_and_fix_algorithm', methods=['POST'])
+def generate_and_fix_algorithm():
+    """生成并自动修复算法代码"""
+    data = request.json
+    algorithm_description = data.get('description', '')
+    provider_name = data.get('provider')
+    algorithm_name = data.get('name', 'custom_algorithm')
+
+    if not algorithm_description:
+        return jsonify({'success': False, 'error': 'Algorithm description is required'}), 400
+
+    try:
+        # 创建任务ID
+        task_id = f"generate_fix_{uuid.uuid4().hex}"
+
+        # 创建任务
+        task = progress_manager.create_task(
+            task_id=task_id,
+            task_type=TaskType.GENERATION,
+            title="🤖 生成并修复算法",
+            description=f"生成 {algorithm_name} 算法并自动修复错误",
+            total_steps=7
+        )
+
+        # 启动后台修复任务
+        def run_generation_and_fix_task():
+            try:
+                # 开始任务
+                progress_manager.start_task(task_id)
+                progress_manager.update_step(task_id, 1, "初始化生成器...")
+
+                # 设置LLM提供商
+                provider = LLMProvider(provider_name)
+                if not llm_config.is_provider_configured(provider):
+                    progress_manager.fail_task(task_id, "API key not configured")
+                    return
+
+                # 获取当前网格信息
+                global algorithm_instance
+                if not algorithm_instance:
+                    progress_manager.fail_task(task_id, "Grid not initialized")
+                    return
+
+                # 设置LLM生成器
+                original_provider = llm_generator.current_provider
+                llm_generator.set_provider(provider)
+
+                progress_manager.update_step(task_id, 2, "生成算法代码...")
+
+                # 生成算法
+                code = llm_generator.generate_custom_algorithm(
+                    algorithm_description,
+                    (algorithm_instance.width, algorithm_instance.height),
+                    algorithm_instance.start,
+                    algorithm_instance.end
+                )
+
+                llm_generator.set_provider(original_provider)
+
+                if not code:
+                    progress_manager.fail_task(task_id, "Failed to generate algorithm")
+                    return
+
+                progress_manager.update_step(task_id, 3, "验证生成的代码...")
+
+                # 验证生成的代码
+                validator = CodeValidator()
+                initial_result = validator.validate_algorithm_code(code, algorithm_name)
+
+                if initial_result.is_valid:
+                    progress_manager.update_step(task_id, 7, "✅ 代码生成完成且验证通过")
+                    progress_manager.complete_task(task_id, {
+                        'code': code,
+                        'validation_result': initial_result,
+                        'generations': 1,
+                        'fixes': 0
+                    })
+                    return
+
+                progress_manager.update_step(task_id, 4, "发现错误，启动自动修复...")
+
+                # 创建LLM修复器
+                fixer = LLMCodeFixer(llm_config)
+                fixer.set_provider(provider)
+
+                progress_manager.update_step(task_id, 5, "进行代码修复...")
+
+                # 定义进度回调
+                def progress_callback(progress_data):
+                    if 'current_step_name' in progress_data:
+                        step_name = progress_data['current_step_name']
+                        progress = (progress_data.get('overall_progress', 0) * 30 / 100) + 60  # 60-90% 范围
+                        progress_manager.update_progress(task_id, progress, step_name)
+
+                # 执行修复
+                fix_result = fixer.fix_algorithm_code(
+                    code,
+                    algorithm_name,
+                    progress_callback=progress_callback
+                )
+
+                progress_manager.update_step(task_id, 6, "验证最终结果...")
+
+                if fix_result['success']:
+                    progress_manager.update_progress(task_id, 95, "生成和修复完成")
+                    final_validator = CodeValidator()
+                    final_result = final_validator.validate_algorithm_code(fix_result['final_code'], algorithm_name)
+
+                    # 尝试加载算法
+                    if algorithm_executor.load_algorithm(algorithm_name, fix_result['final_code']):
+                        progress_manager.update_step(task_id, 7, "✅ 算法生成并修复成功")
+                        progress_manager.complete_task(task_id, {
+                            'code': fix_result['final_code'],
+                            'validation_result': final_result,
+                            'generations': 1,
+                            'fixes': fix_result['iterations'],
+                            'fix_history': fix_result.get('fix_history', [])
+                        })
+                    else:
+                        progress_manager.fail_task(task_id, "代码修复成功但无法加载到执行器")
+                else:
+                    progress_manager.fail_task(task_id, f"修复失败: {fix_result.get('error', 'Unknown error')}")
+
+            except Exception as e:
+                progress_manager.fail_task(task_id, f"任务执行失败: {str(e)}")
+
+        # 在后台线程中运行
+        threading.Thread(target=run_generation_and_fix_task, daemon=True).start()
+
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'message': '算法生成和修复任务已启动'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# 任务管理路由
+@app.route('/tasks/<task_id>', methods=['GET'])
+def get_task(task_id):
+    """获取任务状态"""
+    task = progress_manager.get_task(task_id)
+    if task:
+        return jsonify({
+            'success': True,
+            'task': task.to_dict()
+        })
+    else:
+        return jsonify({'success': False, 'error': 'Task not found'}), 404
+
+@app.route('/tasks', methods=['GET'])
+def get_all_tasks():
+    """获取所有任务"""
+    tasks = progress_manager.get_all_tasks()
+    return jsonify({
+        'success': True,
+        'tasks': [task.to_dict() for task in tasks]
+    })
+
+@app.route('/tasks/<task_id>/pause', methods=['POST'])
+def pause_task(task_id):
+    """暂停任务"""
+    if progress_manager.pause_task(task_id):
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to pause task'}), 400
+
+@app.route('/tasks/<task_id>/resume', methods=['POST'])
+def resume_task(task_id):
+    """恢复任务"""
+    if progress_manager.resume_task(task_id):
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to resume task'}), 400
+
+@app.route('/tasks/<task_id>/cancel', methods=['POST'])
+def cancel_task(task_id):
+    """取消任务"""
+    if progress_manager.cancel_task(task_id):
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to cancel task'}), 400
+
+@app.route('/tasks/<task_id>/remove', methods=['DELETE'])
+def remove_task(task_id):
+    """移除任务"""
+    if progress_manager.remove_task(task_id):
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': 'Failed to remove task'}), 400
 
 def open_browser():
     """延迟打开浏览器，确保服务器已启动"""

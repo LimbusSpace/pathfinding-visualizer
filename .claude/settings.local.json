@@ -5,7 +5,10 @@
       "Bash(git remote add:*)",
       "Bash(git push -u origin main)",
       "Bash(python -c:*)",
-      "Bash(timeout 10s python app.py)"
+      "Bash(timeout 10s python app.py)",
+      "Bash(python app.py)",
+      "WebSearch",
+      "Bash(gh --version)"
     ],
     "deny": [],
     "ask": []
