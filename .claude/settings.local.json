@@ -12,7 +12,10 @@
       "Bash(git push:*)",
       "Bash(gh repo sync)",
       "Bash(gh pr view)",
-      "Bash(python test_llm_generation.py)"
+      "Bash(python test_llm_generation.py)",
+      "Bash(git commit:*)",
+      "Bash(git checkout main)",
+      "Bash(git add .claude/settings.local.json)"
     ],
     "deny": [],
     "ask": []
