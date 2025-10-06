@@ -51,10 +51,10 @@ class FixProgress:
 
     def _get_step_name(self) -> str:
         step_names = {
-            FixStep.ANALYSIS: "🔍 分析错误",
-            FixStep.GENERATION: "🔧 生成修复代码",
-            FixStep.VALIDATION: "✅ 验证修复结果",
-            FixStep.OPTIMIZATION: "⚡ 优化和改进"
+            FixStep.ANALYSIS: "[ANALYSIS] 分析错误",
+            FixStep.GENERATION: "[GENERATION] 生成修复代码",
+            FixStep.VALIDATION: "[VALIDATION] 验证修复结果",
+            FixStep.OPTIMIZATION: "[OPTIMIZATION] 优化和改进"
         }
         return step_names.get(self.current_step, "未知步骤")
 
@@ -114,7 +114,7 @@ class LLMCodeFixer:
                 # 步骤1: 分析错误
                 progress.current_step = FixStep.ANALYSIS
                 progress.step_progress = 0
-                progress.message = "🔍 分析代码错误..."
+                progress.message = "[ANALYSIS] 分析代码错误..."
 
                 if progress_callback:
                     progress_callback(progress.to_dict())
@@ -131,7 +131,7 @@ class LLMCodeFixer:
                 if validation_result.is_valid:
                     progress.current_step = FixStep.OPTIMIZATION
                     progress.step_progress = 100
-                    progress.message = "✅ 代码修复成功！现在进行优化..."
+                    progress.message = "[SUCCESS] 代码修复成功！现在进行优化..."
 
                     if progress_callback:
                         progress_callback(progress.to_dict())
@@ -152,7 +152,7 @@ class LLMCodeFixer:
                 # 步骤2: 生成修复代码
                 progress.current_step = FixStep.GENERATION
                 progress.step_progress = 0
-                progress.message = "🔧 生成修复代码..."
+                progress.message = "[GENERATION] 生成修复代码..."
 
                 if progress_callback:
                     progress_callback(progress.to_dict())
@@ -167,7 +167,7 @@ class LLMCodeFixer:
                     raise Exception("LLM返回空结果")
 
                 progress.step_progress = 100
-                progress.message = "✅ 修复代码生成完成"
+                progress.message = "[SUCCESS] 修复代码生成完成"
 
                 if progress_callback:
                     progress_callback(progress.to_dict())
@@ -175,7 +175,7 @@ class LLMCodeFixer:
                 # 步骤3: 验证修复结果
                 progress.current_step = FixStep.VALIDATION
                 progress.step_progress = 0
-                progress.message = "✅ 验证修复结果..."
+                progress.message = "[VALIDATION] 验证修复结果..."
 
                 if progress_callback:
                     progress_callback(progress.to_dict())
@@ -207,9 +207,14 @@ class LLMCodeFixer:
                 current_code = fixed_code
 
             except Exception as e:
+                error_detail = f"❌ 第 {iteration} 轮修复失败: {str(e)}"
+                if hasattr(e, '__traceback__'):
+                    import traceback
+                    error_detail += f"\n详细信息: {traceback.format_exc()}"
+
                 progress.current_step = FixStep.ANALYSIS
                 progress.step_progress = 0
-                progress.message = f"❌ 第 {iteration} 轮修复失败: {str(e)}"
+                progress.message = error_detail
 
                 if progress_callback:
                     progress_callback(progress.to_dict())
@@ -291,19 +296,19 @@ class LLMCodeFixer:
 
 ## 错误分类与优先级:
 
-### 🔥 严重错误 (必须修复):
+### [CRITICAL] 严重错误 (必须修复):
 {chr(10).join(critical_errors) if critical_errors else "无严重错误"}
 
-### 🐛 语法错误 (必须修复):
+### [SYNTAX] 语法错误 (必须修复):
 {chr(10).join(syntax_errors) if syntax_errors else "无语法错误"}
 
-### 🏗️ 结构错误 (必须修复):
+### [STRUCTURE] 结构错误 (必须修复):
 {chr(10).join(structure_errors) if structure_errors else "无结构错误"}
 
-### ⚠️ 逻辑错误 (需要修复):
+### [LOGIC] 逻辑错误 (需要修复):
 {chr(10).join(logic_errors) if logic_errors else "无逻辑错误"}
 
-### ⚡ 警告问题 (建议修复):
+### [WARNING] 警告问题 (建议修复):
 {chr(10).join(warning_messages) if warning_messages else "无警告"}
 
 ## 智能修复策略:
@@ -326,13 +331,13 @@ class LLMCodeFixer:
 - 添加必要的边界检查和异常处理
 
 ## 代码规范要求:
-- ✅ 类名必须是: CustomPathfindingAlgorithm
-- ✅ 必须包含方法: __init__(self, width, height)
-- ✅ 必须包含方法: find_path(self, grid, start, end)
-- ✅ 必须包含方法: get_visited_order(self)
-- ✅ 必须包含属性: width, height, visited_order
-- ✅ 坐标格式建议使用: (y, x)
-- ✅ 添加类型注解和文档字符串（如果缺失）
+- [REQUIRED] 类名必须是: CustomPathfindingAlgorithm
+- [REQUIRED] 必须包含方法: __init__(self, width, height)
+- [REQUIRED] 必须包含方法: find_path(self, grid, start, end)
+- [REQUIRED] 必须包含方法: get_visited_order(self)
+- [REQUIRED] 必须包含属性: width, height, visited_order
+- [RECOMMENDED] 坐标格式建议使用: (y, x)
+- [RECOMMENDED] 添加类型注解和文档字符串（如果缺失）
 
 ## 输出要求:
 请只返回修复后的完整Python代码，不要包含任何解释或其他文本。
@@ -360,14 +365,14 @@ class LLMCodeFixer:
 """
         elif iteration == 3:
             return """
-### ⚡ 第3轮修复策略:
+### [ROUND 3] 第3轮修复策略:
 - 精细化修复剩余问题
 - 优化代码质量和可读性
 - 增强代码健壮性
 """
         else:
             return """
-### 🎯 最终修复策略:
+### [FINAL] 最终修复策略:
 - 专注于解决顽固问题
 - 确保代码完全符合规范
 - 验证所有功能的正确性

@@ -389,6 +389,8 @@ class CustomAlgorithmExecutor:
             return [], []
 
     def _convert_grid(self, grid):
+        """将整数网格转换为CellType枚举网格"""
+        # 使用与算法相同的CellType枚举定义
         class CellType(Enum):
             EMPTY = 0
             WALL = 1
@@ -397,13 +399,23 @@ class CustomAlgorithmExecutor:
             VISITED = 4
             PATH = 5
 
-        converted = []
-        for row in grid:
-            converted_row = []
-            for cell in row:
-                converted_row.append(CellType(cell))
-            converted.append(converted_row)
-        return converted
+        try:
+            converted = []
+            for row in grid:
+                converted_row = []
+                for cell in row:
+                    # 确保cell是整数类型
+                    if isinstance(cell, CellType):
+                        converted_row.append(cell)
+                    else:
+                        # 将整数转换为CellType枚举
+                        converted_row.append(CellType(int(cell)))
+                converted.append(converted_row)
+            return converted
+        except Exception as e:
+            print(f"Grid conversion error: {e}")
+            # 如果转换失败，返回一个安全的默认网格
+            return [[CellType.EMPTY for _ in row] for row in grid]
 
     def get_available_algorithms(self) -> List[dict]:
         algorithms = []

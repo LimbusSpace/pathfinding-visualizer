@@ -218,19 +218,34 @@ def execute_custom_algorithm():
         return jsonify({'success': False, 'error': 'Custom algorithm not found'}), 400
 
     try:
-        # 执行算法
-        converted_grid = []
+        print(f"🔍 [DEBUG] 执行自定义算法请求: algorithm_name={algorithm_name}")
+        print(f"🔍 [DEBUG] 可用的算法列表: {list(algorithm_executor.custom_algorithms.keys())}")
+
+        if not algorithm_instance:
+            print("🔍 [ERROR] algorithm_instance 未初始化")
+            return jsonify({'success': False, 'error': 'Algorithm not initialized'}), 400
+
+        if algorithm_name not in algorithm_executor.custom_algorithms:
+            print(f"🔍 [ERROR] 算法 {algorithm_name} 不在 available_algorithms 中")
+            return jsonify({'success': False, 'error': 'Custom algorithm not found'}), 400
+
+        print(f"🔍 [DEBUG] 开始执行算法 {algorithm_name}")
+        print(f"🔍 [DEBUG] 网格大小: {algorithm_instance.width}x{algorithm_instance.height}")
+        print(f"🔍 [DEBUG] 起点: {algorithm_instance.start}, 终点: {algorithm_instance.end}")
+
+        # 执行算法 - 直接传递CellType值，让算法执行器处理转换
+        raw_grid = []
         for row in algorithm_instance.grid:
-            converted_row = []
+            raw_row = []
             for cell in row:
-                converted_row.append(cell.value)
-            converted_grid.append(converted_row)
+                raw_row.append(cell.value)
+            raw_grid.append(raw_row)
 
         path, visited_order = algorithm_executor.execute_algorithm(
             algorithm_name,
             algorithm_instance.width,
             algorithm_instance.height,
-            converted_grid,
+            raw_grid,
             algorithm_instance.start,
             algorithm_instance.end
         )

@@ -182,6 +182,8 @@ class PathfindingVisualizer {
             // 检查是否为自定义算法
             if (llmManager.isCustomAlgorithm(algorithm)) {
                 const customAlgorithmName = llmManager.getCustomAlgorithmName(algorithm);
+                console.log('🔍 执行自定义算法:', algorithm, '算法名称:', customAlgorithmName);
+
                 const customResponse = await fetch('/llm/execute_custom', {
                     method: 'POST',
                     headers: {
@@ -192,11 +194,16 @@ class PathfindingVisualizer {
                     })
                 });
 
+                console.log('🔍 自定义算法响应状态:', customResponse.status);
+
                 if (!customResponse.ok) {
-                    throw new Error('Failed to execute custom algorithm');
+                    const errorData = await customResponse.json();
+                    console.error('🔍 自定义算法执行失败:', errorData);
+                    throw new Error('Failed to execute custom algorithm: ' + errorData.error);
                 }
 
                 result = await customResponse.json();
+                console.log('🔍 自定义算法执行结果:', result);
             } else {
                 const pathResponse = await fetch('/find_path', {
                     method: 'POST',
@@ -458,8 +465,10 @@ llmManager = {
 
         this.customAlgorithms.forEach(algorithm => {
             const option = document.createElement('option');
-            option.value = 'custom_' + algorithm;
-            option.textContent = algorithm;
+            // 使用算法的name字段作为值，description作为显示文本
+            option.value = 'custom_' + algorithm.name;
+            // 🔧 修复：使用description字段而不是整个对象
+            option.textContent = algorithm.description || algorithm.name;
             customGroup.appendChild(option);
         });
     },
@@ -482,7 +491,8 @@ llmManager = {
     },
 
     getCustomAlgorithmName(algorithm) {
-        return algorithm.substring(7); // 移除 'custom_' 前缀
+        // 🔧 修复：现在algorithm格式是 'custom_algorithmName'，需要移除前缀
+        return algorithm.startsWith('custom_') ? algorithm.substring(7) : algorithm;
     },
 
     startTaskMonitoring() {

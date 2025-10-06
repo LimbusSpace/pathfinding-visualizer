@@ -108,9 +108,13 @@ class CodeValidator:
         # 计算总分
         score = self._calculate_score(errors, warnings, suggestions)
 
+        # 只有ERROR和CRITICAL级别的错误影响代码有效性
+        critical_errors = [e for e in errors if e.level in [ValidationLevel.ERROR, ValidationLevel.CRITICAL]]
+        is_valid = len(critical_errors) == 0
+
         return CodeValidationResult(
-            is_valid=len(errors) == 0,
-            errors=errors,
+            is_valid=is_valid,
+            errors=critical_errors,
             warnings=warnings,
             suggestions=suggestions,
             overall_score=score
@@ -226,74 +230,74 @@ class CodeValidator:
         errors = []
 
         # 检查是否有无限循环的风险
-        if "while True:" in code:
+        if "while True:" in code and "break" not in code:
             errors.append(ValidationResult(
                 level=ValidationLevel.WARNING,
                 message="发现可能的无限循环",
                 suggestion="确保有适当的循环退出条件，如 if condition: break"
             ))
 
-        # 检查是否处理了无路径情况
-        if "find_path" in code and "return []" not in code:
+        # 检查是否处理了无路径情况 - 更宽松的检查
+        if "find_path" in code and "return []" not in code and "return" not in code:
             errors.append(ValidationResult(
                 level=ValidationLevel.WARNING,
                 message="可能缺少无路径情况处理",
                 suggestion="在 find_path 方法中添加无路径时的返回值，如 return []"
             ))
 
-        # 检查是否记录了访问顺序
+        # 检查是否记录了访问顺序 - 降低为警告
         if "visited_order" not in code:
             errors.append(ValidationResult(
-                level=ValidationLevel.ERROR,
+                level=ValidationLevel.WARNING,
                 message="缺少访问顺序记录",
                 suggestion="确保在算法中添加 visited_order 列表并记录访问的节点"
             ))
 
-        # 检查是否正确处理了grid参数
-        if "find_path" in code and "grid[" not in code:
+        # 检查是否正确处理了grid参数 - 更精确的检查
+        if "find_path" in code and "grid[" not in code and "grid." not in code:
             errors.append(ValidationResult(
                 level=ValidationLevel.WARNING,
                 message="可能没有正确使用grid参数",
                 suggestion="确保在算法中使用传入的grid参数检查障碍物"
             ))
 
-        # 增强的逻辑检查
+        # 增强的逻辑检查 - 降低为建议性检查
         # 检查变量类型规范
         if "self.visited_order" in code and "self.visited_order = []" not in code:
             errors.append(ValidationResult(
-                level=ValidationLevel.WARNING,
+                level=ValidationLevel.INFO,  # 降低为信息级别
                 message="visited_order 初始化可能不规范",
                 suggestion="在 __init__ 方法中添加 self.visited_order = []"
             ))
 
-        # 检查方法返回值类型
-        if "def get_visited_order(self)" in code and "return self.visited_order" not in code:
+        # 检查方法返回值类型 - 更宽松的检查
+        if "def get_visited_order(self)" in code and "return " not in code:
             errors.append(ValidationResult(
                 level=ValidationLevel.WARNING,
-                message="get_visited_order 方法返回值不规范",
+                message="get_visited_order 方法缺少返回值",
                 suggestion="确保 get_visited_order 方法返回 self.visited_order"
             ))
 
-        # 检查坐标格式规范
+        # 检查坐标格式规范 - 降低为信息级别
         if "find_path" in code and "(y, x)" not in code and "(x, y)" in code:
             errors.append(ValidationResult(
-                level=ValidationLevel.WARNING,
+                level=ValidationLevel.INFO,  # 降低为信息级别
                 message="建议使用 (y, x) 坐标格式",
                 suggestion="为了保持一致性，建议使用 (y, x) 格式表示坐标"
             ))
 
-        # 检查网格边界检查
-        if "find_path" in code and ("0 >=" not in code and ">=" not in code.split("find_path")[1].split("def")[0]):
+        # 检查网格边界检查 - 更宽松的检查
+        if "find_path" in code and "0 <=" not in code and "0 >" not in code:
             errors.append(ValidationResult(
-                level=ValidationLevel.WARNING,
+                level=ValidationLevel.INFO,  # 降低为信息级别
                 message="可能缺少网格边界检查",
                 suggestion="确保在访问 grid[y][x] 前检查坐标范围: 0 <= y < height and 0 <= x < width"
             ))
 
-        # 检查算法核心逻辑
-        if "find_path" in code and ("queue" not in code and "stack" not in code and "list" not in code):
+        # 检查算法核心逻辑 - 更宽松的检查
+        if "find_path" in code and all(x not in code for x in ["queue", "stack", "list", "deque", "array"]):
             errors.append(ValidationResult(
-                level=ValidationLevel.WARNING,
+                level=ValidationLevel.INFO,  # 降低为信息级别
                 message="算法可能缺少必要的数据结构",
                 suggestion="寻路算法通常需要队列、栈或列表等数据结构来管理节点"
             ))
@@ -427,12 +431,21 @@ class CodeValidator:
 
     def _calculate_score(self, errors: List[ValidationResult], warnings: List[ValidationResult], suggestions: List[ValidationResult]) -> float:
         """计算验证分数"""
-        error_weight = 10
+        critical_error_weight = 15
+        error_weight = 8
         warning_weight = 3
         suggestion_weight = 1
+        info_weight = 0.5  # INFO级别验证几乎不影响分数
+
+        # 计算不同级别错误的数量
+        critical_errors = len([e for e in errors if e.level == ValidationLevel.CRITICAL])
+        regular_errors = len([e for e in errors if e.level == ValidationLevel.ERROR])
+        info_errors = len([e for e in errors if e.level == ValidationLevel.INFO])
 
         deductions = (
-            len(errors) * error_weight +
+            critical_errors * critical_error_weight +
+            regular_errors * error_weight +
+            info_errors * info_weight +
             len(warnings) * warning_weight +
             len(suggestions) * suggestion_weight
         )

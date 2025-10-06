@@ -8,7 +8,11 @@
       "Bash(timeout 10s python app.py)",
       "Bash(python app.py)",
       "WebSearch",
-      "Bash(gh --version)"
+      "Bash(gh --version)",
+      "Bash(git push:*)",
+      "Bash(gh repo sync)",
+      "Bash(gh pr view)",
+      "Bash(python test_llm_generation.py)"
     ],
     "deny": [],
     "ask": []
