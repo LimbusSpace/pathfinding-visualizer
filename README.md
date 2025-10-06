@@ -62,8 +62,8 @@
 #### 🚀 支持的 LLM 提供商
 | 提供商 | 推荐模型 | 特点 |
 |--------|----------|------|
-| 🏗️ **魔搭社区** | Qwen/Qwen2.5-72B-Instruct | 中文支持优秀，适合算法理解 |
-| ⚡ **硅基流动** | Qwen/Qwen2.5-72B-Instruct | 性价比高，响应速度快 |
+| 🏗️ **魔搭社区** | deepseekV3.1-chat | 中文支持优秀，适合算法理解 |
+| ⚡ **硅基流动** | deepseekV3.1-chat | 性价比高，响应速度快 |
 | 🧠 **DeepSeek** | deepseek-chat | 代码生成能力强，逻辑推理优秀 |
 | 🌐 **OpenRouter** | anthropic/claude-3.5-sonnet | 多模型支持，选择灵活 |
 
