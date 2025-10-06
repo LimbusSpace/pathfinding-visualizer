@@ -1,0 +1,12 @@
+[
+  {
+    "test_case": 2,
+    "description": "简单的BFS广度优先搜索算法",
+    "generation_success": true,
+    "validation_success": false,
+    "fixing_success": false,
+    "execution_success": true,
+    "code_length": 1853,
+    "validation_score": 90.0
+  }
+]
