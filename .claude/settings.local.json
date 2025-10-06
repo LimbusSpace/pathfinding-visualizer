@@ -15,7 +15,8 @@
       "Bash(python test_llm_generation.py)",
       "Bash(git commit:*)",
       "Bash(git checkout main)",
-      "Bash(git add .claude/settings.local.json)"
+      "Bash(git add .claude/settings.local.json)",
+      "Bash(git add README.md)"
     ],
     "deny": [],
     "ask": []
